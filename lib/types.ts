@@ -1,0 +1,85 @@
+export interface Affirmation {
+  id: string;
+  text: string;
+  pillar: "career" | "identity" | "assets" | "general";
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface DailyHabit {
+  id: string;
+  name: string;
+  name_en: string;
+  category: "career" | "identity" | "assets" | "health";
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface HabitLog {
+  id: string;
+  habit_id: string;
+  date: string;
+  completed: boolean;
+  value: string | null;
+  created_at: string;
+}
+
+export interface HabitWithLog extends DailyHabit {
+  log: HabitLog | null;
+}
+
+export interface Conversation {
+  id: string;
+  date: string;
+  partner: string;
+  context: string;
+  summary: string;
+  went_well: string;
+  to_improve: string;
+  is_imported: boolean;
+  source_text: string | null;
+  created_at: string;
+}
+
+export interface ConversationTopic {
+  id: string;
+  topic: string;
+  content: string | null;
+  category: string | null;
+  used_count: number;
+  source_conversation_id: string | null;
+  created_at: string;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  pillar: "career" | "identity" | "assets";
+  timeframe: "6month" | "1year" | "3year" | "5year" | "10year";
+  status: "not_started" | "in_progress" | "completed" | "abandoned";
+  target_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NumericTarget {
+  id: string;
+  name: string;
+  unit: string;
+  target_value: number;
+  pillar: "career" | "identity" | "assets";
+  created_at: string;
+}
+
+export interface NumericLog {
+  id: string;
+  target_id: string;
+  date: string;
+  value: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export type Pillar = "career" | "identity" | "assets";
