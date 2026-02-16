@@ -262,55 +262,59 @@ export function HabitChecklist() {
         <TabsContent value="weekly">
           <CardContent className="pt-0">
             {/* 날짜 헤더 */}
-            <div className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))] gap-1 mb-2">
-              <div />
-              {weekDates.map((d, i) => {
-                const dateStr = toDateString(d);
-                const isToday = dateStr === today;
-                return (
-                  <div
-                    key={i}
-                    className={`text-center text-xs ${isToday ? "font-bold text-primary" : "text-muted-foreground"}`}
-                  >
-                    <div>{DAY_LABELS[i]}</div>
-                    <div className="text-[10px]">{d.getDate()}</div>
-                  </div>
-                );
-              })}
+            <div className="flex items-end mb-2">
+              <div className="flex-1" />
+              <div className="flex gap-1.5">
+                {weekDates.map((d, i) => {
+                  const dateStr = toDateString(d);
+                  const isToday = dateStr === today;
+                  return (
+                    <div
+                      key={i}
+                      className={`w-7 text-center text-xs ${isToday ? "font-bold text-primary" : "text-muted-foreground"}`}
+                    >
+                      <div>{DAY_LABELS[i]}</div>
+                      <div className="text-[10px]">{d.getDate()}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* 습관별 행 */}
             {habits.map((habit) => (
               <div
                 key={habit.id}
-                className="grid grid-cols-[1fr_repeat(7,minmax(0,1fr))] gap-1 items-center py-1.5"
+                className="flex items-center py-2 gap-2"
               >
-                <span className="text-xs truncate pr-1">{habit.name}</span>
-                {weekDates.map((d, i) => {
-                  const dateStr = toDateString(d);
-                  const done = isCompleted(habit.id, dateStr);
-                  const isFuture = dateStr > today;
-                  return (
-                    <button
-                      type="button"
-                      key={i}
-                      disabled={isFuture}
-                      onClick={() => toggleHabit(habit, dateStr)}
-                      className="flex items-center justify-center"
-                      title={`${habit.name} - ${DAY_LABELS[i]}`}
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-sm transition-all ${
-                          isFuture
-                            ? "bg-muted/50"
-                            : done
-                              ? CATEGORY_COLORS[habit.category]
-                              : "bg-muted"
-                        }`}
-                      />
-                    </button>
-                  );
-                })}
+                <span className="flex-1 text-sm">{habit.name}</span>
+                <div className="flex gap-1.5">
+                  {weekDates.map((d, i) => {
+                    const dateStr = toDateString(d);
+                    const done = isCompleted(habit.id, dateStr);
+                    const isFuture = dateStr > today;
+                    return (
+                      <button
+                        type="button"
+                        key={i}
+                        disabled={isFuture}
+                        onClick={() => toggleHabit(habit, dateStr)}
+                        className="flex items-center justify-center w-7"
+                        title={`${habit.name} - ${DAY_LABELS[i]}`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-sm transition-all ${
+                            isFuture
+                              ? "bg-muted/50"
+                              : done
+                                ? CATEGORY_COLORS[habit.category]
+                                : "bg-muted"
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ))}
 
