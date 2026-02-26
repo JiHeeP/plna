@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { BookOpen, TrendingUp, Star } from "lucide-react";
+import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
 import type { DailyJournal } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -42,7 +43,9 @@ export function DailyJournalCard() {
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const today = toDateString(new Date());
 
@@ -83,6 +86,22 @@ export function DailyJournalCard() {
     loadJournal();
   }, [loadJournal]);
 
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (statusTimer.current) clearTimeout(statusTimer.current);
+    };
+  }, []);
+
+  // 저장 상태 표시 후 2초 뒤 자동 숨김
+  useEffect(() => {
+    if (saveStatus !== "idle") {
+      if (statusTimer.current) clearTimeout(statusTimer.current);
+      statusTimer.current = setTimeout(() => setSaveStatus("idle"), 2000);
+    }
+  }, [saveStatus]);
+
   const saveJournal = useCallback(
     async (updatedForm: typeof form) => {
       setSaving(true);
@@ -90,25 +109,37 @@ export function DailyJournalCard() {
       if (useLocal) {
         localStorage.setItem(`journal_${today}`, JSON.stringify(updatedForm));
         setSaving(false);
+        setSaveStatus("saved");
         return;
       }
 
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("daily_journals")
-        .upsert(
-          {
-            date: today,
-            ...updatedForm,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "date" }
-        )
-        .select()
-        .single();
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("daily_journals")
+          .upsert(
+            {
+              date: today,
+              ...updatedForm,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "date" }
+          )
+          .select()
+          .single();
 
-      if (data) setJournal(data);
-      setSaving(false);
+        if (error) throw error;
+
+        if (data) setJournal(data);
+        setSaveStatus("saved");
+      } catch (err) {
+        console.error("저널 저장 실패:", err);
+        // Supabase 실패 시 localStorage에 백업 저장
+        localStorage.setItem(`journal_${today}`, JSON.stringify(updatedForm));
+        setSaveStatus("error");
+      } finally {
+        setSaving(false);
+      }
     },
     [today, useLocal]
   );
@@ -144,6 +175,12 @@ export function DailyJournalCard() {
           {saving && (
             <span className="text-xs text-muted-foreground">저장 중...</span>
           )}
+          {!saving && saveStatus === "saved" && (
+            <span className="text-xs text-green-600">저장됨</span>
+          )}
+          {!saving && saveStatus === "error" && (
+            <span className="text-xs text-red-500">저장 실패 (로컬에 백업됨)</span>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-4">
@@ -161,6 +198,18 @@ export function DailyJournalCard() {
             />
           </div>
         ))}
+        <Button
+          onClick={() => {
+            if (saveTimer.current) clearTimeout(saveTimer.current);
+            saveJournal(form);
+          }}
+          disabled={saving}
+          className="w-full"
+          size="sm"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "저장 중..." : "저장하기"}
+        </Button>
       </CardContent>
     </Card>
   );
