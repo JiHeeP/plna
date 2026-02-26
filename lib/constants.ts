@@ -23,6 +23,7 @@ export const DEFAULT_HABITS = [
   { name: "연구대회 2시간", name_en: "research", category: "career", sort_order: 4 },
   { name: "코딩/AI 다루기", name_en: "coding", category: "assets", sort_order: 5 },
   { name: "대화 기록", name_en: "conversation_log", category: "identity", sort_order: 6 },
+  { name: "책 읽기", name_en: "reading", category: "identity", sort_order: 7 },
 ] as const;
 
 export const AFFIRMATIONS = [
