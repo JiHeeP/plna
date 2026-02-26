@@ -5,7 +5,8 @@ INSERT INTO daily_habits (name, name_en, category, sort_order) VALUES
   ('명상 5분', 'meditation', 'health', 3),
   ('연구대회 2시간', 'research', 'career', 4),
   ('코딩', 'coding', 'assets', 5),
-  ('대화 기록', 'conversation_log', 'identity', 6);
+  ('대화 기록', 'conversation_log', 'identity', 6),
+  ('책 읽기', 'reading', 'identity', 7);
 
 -- 확언 (선언문에서 가져온 것)
 INSERT INTO affirmations (text, pillar) VALUES
