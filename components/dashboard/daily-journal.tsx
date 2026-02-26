@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { BookOpen, TrendingUp, Star } from "lucide-react";
+import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
 import type { DailyJournal } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -197,6 +198,18 @@ export function DailyJournalCard() {
             />
           </div>
         ))}
+        <Button
+          onClick={() => {
+            if (saveTimer.current) clearTimeout(saveTimer.current);
+            saveJournal(form);
+          }}
+          disabled={saving}
+          className="w-full"
+          size="sm"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "저장 중..." : "저장하기"}
+        </Button>
       </CardContent>
     </Card>
   );
