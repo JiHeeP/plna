@@ -3,6 +3,7 @@ import { HabitChecklist } from "@/components/dashboard/habit-checklist";
 import { DailyTodoList } from "@/components/dashboard/daily-todo";
 import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
+import { InsightCard } from "@/components/dashboard/insight-card";
 import { YEAR_START } from "@/lib/constants";
 
 function getDayInfo() {
@@ -45,6 +46,9 @@ export default function Dashboard() {
 
       {/* 오늘의 기록 */}
       <DailyJournalCard />
+
+      {/* 주간/월간 인사이트 */}
+      <InsightCard />
 
       {/* 스트릭 카운터 */}
       <StreakCounter />
