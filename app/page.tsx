@@ -1,5 +1,7 @@
 import { AffirmationCard } from "@/components/dashboard/affirmation-card";
 import { HabitChecklist } from "@/components/dashboard/habit-checklist";
+import { DailyTodoList } from "@/components/dashboard/daily-todo";
+import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { YEAR_START } from "@/lib/constants";
 
@@ -35,8 +37,14 @@ export default function Dashboard() {
       {/* 오늘의 확언 */}
       <AffirmationCard />
 
+      {/* 오늘의 할 일 */}
+      <DailyTodoList />
+
       {/* 습관 체크리스트 */}
       <HabitChecklist />
+
+      {/* 오늘의 기록 */}
+      <DailyJournalCard />
 
       {/* 스트릭 카운터 */}
       <StreakCounter />

@@ -82,4 +82,23 @@ export interface NumericLog {
   created_at: string;
 }
 
+export interface DailyTodo {
+  id: string;
+  date: string;
+  text: string;
+  completed: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface DailyJournal {
+  id: string;
+  date: string;
+  accomplishments: string;
+  to_improve: string;
+  went_well: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Pillar = "career" | "identity" | "assets";

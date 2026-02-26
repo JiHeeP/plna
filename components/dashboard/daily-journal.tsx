@@ -1,0 +1,167 @@
+"use client";
+
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { createClient } from "@/lib/supabase/client";
+import { BookOpen, TrendingUp, Star } from "lucide-react";
+import type { DailyJournal } from "@/lib/types";
+
+function toDateString(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const FIELDS = [
+  {
+    key: "accomplishments" as const,
+    label: "오늘 한 일",
+    icon: BookOpen,
+    placeholder: "오늘 무엇을 했나요?",
+  },
+  {
+    key: "went_well" as const,
+    label: "잘한 일",
+    icon: Star,
+    placeholder: "오늘 잘한 일은 무엇인가요?",
+  },
+  {
+    key: "to_improve" as const,
+    label: "보완하고 싶은 것",
+    icon: TrendingUp,
+    placeholder: "내일은 어떻게 더 잘할 수 있을까요?",
+  },
+] as const;
+
+export function DailyJournalCard() {
+  const [journal, setJournal] = useState<DailyJournal | null>(null);
+  const [form, setForm] = useState({
+    accomplishments: "",
+    to_improve: "",
+    went_well: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [useLocal, setUseLocal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const today = toDateString(new Date());
+
+  const loadJournal = useCallback(async () => {
+    const supabase = createClient();
+
+    try {
+      const { data, error } = await supabase
+        .from("daily_journals")
+        .select("*")
+        .eq("date", today)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+
+      if (data) {
+        setJournal(data);
+        setForm({
+          accomplishments: data.accomplishments,
+          to_improve: data.to_improve,
+          went_well: data.went_well,
+        });
+      }
+      setUseLocal(false);
+    } catch {
+      setUseLocal(true);
+      const saved = localStorage.getItem(`journal_${today}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm(parsed);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [today]);
+
+  useEffect(() => {
+    loadJournal();
+  }, [loadJournal]);
+
+  const saveJournal = useCallback(
+    async (updatedForm: typeof form) => {
+      setSaving(true);
+
+      if (useLocal) {
+        localStorage.setItem(`journal_${today}`, JSON.stringify(updatedForm));
+        setSaving(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("daily_journals")
+        .upsert(
+          {
+            date: today,
+            ...updatedForm,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "date" }
+        )
+        .select()
+        .single();
+
+      if (data) setJournal(data);
+      setSaving(false);
+    },
+    [today, useLocal]
+  );
+
+  const handleChange = (key: keyof typeof form, value: string) => {
+    const updated = { ...form, [key]: value };
+    setForm(updated);
+
+    // 자동 저장 (1초 디바운스)
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => saveJournal(updated), 1000);
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">오늘의 기록</CardTitle>
+          {saving && (
+            <span className="text-xs text-muted-foreground">저장 중...</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-4">
+        {FIELDS.map(({ key, label, icon: Icon, placeholder }) => (
+          <div key={key} className="space-y-1.5">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+              {label}
+            </label>
+            <Textarea
+              value={form[key]}
+              onChange={(e) => handleChange(key, e.target.value)}
+              placeholder={placeholder}
+              className="min-h-[72px] text-sm resize-none"
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
