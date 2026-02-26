@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 import { Plus, X, ChevronDown, ChevronUp, Save } from "lucide-react";
 import type { ConversationTopic } from "@/lib/types";
 
@@ -20,20 +19,24 @@ export function TopicManager() {
   const [error, setError] = useState<string | null>(null);
 
   const loadTopics = useCallback(async () => {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("conversation_topics")
-      .select("*")
-      .order("created_at", { ascending: false });
+    setLoading(true);
 
-    if (error) {
-      setError(`불러오기 실패: ${error.message}`);
-      setTopics([]);
-    } else {
-      setTopics(data || []);
+    try {
+      const response = await fetch("/api/topics", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as ConversationTopic[];
+      setTopics(data ?? []);
       setError(null);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "알 수 없는 오류";
+      setError(`불러오기 실패: ${message}`);
+      setTopics([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -41,57 +44,71 @@ export function TopicManager() {
   }, [loadTopics]);
 
   const addTopic = async () => {
-    if (!newTopic.trim()) return;
+    const topicText = newTopic.trim();
+    if (!topicText) return;
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("conversation_topics")
-      .insert({ topic: newTopic.trim(), content: "" })
-      .select()
-      .single();
+    try {
+      const response = await fetch("/api/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: topicText, content: "" }),
+      });
 
-    if (error) {
-      setError(`추가 실패: ${error.message || error.code || "알 수 없는 오류"}`);
-      return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const created = (await response.json()) as ConversationTopic;
+      setTopics((prev) => [created, ...prev]);
+      setNewTopic("");
+      setError(null);
+    } catch (createError) {
+      const message = createError instanceof Error ? createError.message : "알 수 없는 오류";
+      setError(`추가 실패: ${message}`);
     }
-
-    setTopics((prev) => [data, ...prev]);
-    setNewTopic("");
-    setError(null);
   };
 
   const deleteTopic = async (id: string) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("conversation_topics")
-      .delete()
-      .eq("id", id);
+    try {
+      const response = await fetch(`/api/topics?id=${id}`, {
+        method: "DELETE",
+      });
 
-    if (error) {
-      setError(`삭제 실패: ${error.message}`);
-      return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      setTopics((prev) => prev.filter((topic) => topic.id !== id));
+      if (expandedId === id) setExpandedId(null);
+      setError(null);
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : "알 수 없는 오류";
+      setError(`삭제 실패: ${message}`);
     }
-
-    setTopics((prev) => prev.filter((t) => t.id !== id));
-    if (expandedId === id) setExpandedId(null);
   };
 
   const saveContent = async (id: string) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("conversation_topics")
-      .update({ content: editContent })
-      .eq("id", id);
+    try {
+      const response = await fetch("/api/topics", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, content: editContent }),
+      });
 
-    if (error) {
-      setError(`저장 실패: ${error.message}`);
-      return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      setTopics((prev) =>
+        prev.map((topic) =>
+          topic.id === id ? { ...topic, content: editContent } : topic
+        )
+      );
+      setError(null);
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : "알 수 없는 오류";
+      setError(`저장 실패: ${message}`);
     }
-
-    setTopics((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, content: editContent } : t))
-    );
-    setError(null);
   };
 
   const toggleExpand = (topic: ConversationTopic) => {
@@ -108,14 +125,12 @@ export function TopicManager() {
 
   return (
     <div className="space-y-4">
-      {/* 에러 메시지 */}
       {error && (
         <div className="rounded-lg bg-destructive/10 text-destructive text-sm px-4 py-3">
           {error}
         </div>
       )}
 
-      {/* 진행률 */}
       <Card>
         <CardContent className="py-4 px-5">
           <div className="flex items-center justify-between mb-2">
@@ -133,15 +148,14 @@ export function TopicManager() {
         </CardContent>
       </Card>
 
-      {/* 추가 입력 */}
       <div className="flex gap-2">
         <Input
           placeholder="새 만능대화소재 입력..."
           value={newTopic}
-          onChange={(e) => setNewTopic(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
+          onChange={(event) => setNewTopic(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
               addTopic();
             }
           }}
@@ -151,7 +165,6 @@ export function TopicManager() {
         </Button>
       </div>
 
-      {/* 소재 목록 */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">소재 목록</CardTitle>
@@ -159,8 +172,8 @@ export function TopicManager() {
         <CardContent>
           {loading ? (
             <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+              {[1, 2, 3].map((index) => (
+                <div key={index} className="h-10 bg-muted animate-pulse rounded" />
               ))}
             </div>
           ) : topics.length === 0 ? (
@@ -173,7 +186,6 @@ export function TopicManager() {
                 const isExpanded = expandedId === topic.id;
                 return (
                   <li key={topic.id} className="rounded-lg border">
-                    {/* 소재 제목 */}
                     <div className="flex items-center justify-between px-3 py-2.5 hover:bg-accent/50 transition-colors">
                       <button
                         onClick={() => toggleExpand(topic)}
@@ -205,13 +217,12 @@ export function TopicManager() {
                       </button>
                     </div>
 
-                    {/* 펼친 내용 (글 작성) */}
                     {isExpanded && (
                       <div className="px-3 pb-3 space-y-2">
                         <Textarea
                           placeholder="이 소재에 대한 메모, 예시 문장, 경험 등을 적어보세요..."
                           value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
+                          onChange={(event) => setEditContent(event.target.value)}
                           rows={4}
                           className="text-sm"
                         />
