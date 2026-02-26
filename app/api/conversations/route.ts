@@ -13,9 +13,13 @@ export async function GET(request: NextRequest) {
     .order("date", { ascending: false });
 
   if (month) {
-    const start = `${month}-01`;
-    const [y, m] = month.split("-").map(Number);
-    const end = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const startDate = new Date(`${month}-01`);
+    const endDate = new Date(startDate);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    const start = startDate.toISOString().split("T")[0];
+    const end = endDate.toISOString().split("T")[0];
+
     query = query.gte("date", start).lt("date", end);
   }
 
