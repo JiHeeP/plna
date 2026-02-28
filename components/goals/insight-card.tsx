@@ -20,6 +20,18 @@ function TrendBadge({ value }: { value: number }) {
   );
 }
 
+function PointList({ items }: { items: string[] }) {
+  return (
+    <ol className="list-decimal list-inside space-y-1">
+      {items.map((item, i) => (
+        <li key={i} className="text-sm text-muted-foreground">
+          {item}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function InsightCard() {
   const [period, setPeriod] = useState<"weekly" | "monthly">("weekly");
   const [insights, setInsights] = useState<UnifiedInsightResponse | null>(null);
@@ -97,14 +109,14 @@ export function InsightCard() {
               </Badge>
             </div>
 
-            <section className="space-y-1">
+            <section className="space-y-2">
               <h3 className="text-sm font-medium">잘한 점</h3>
-              <p className="text-sm text-muted-foreground">{snapshot.wentWell}</p>
+              <PointList items={snapshot.wentWell} />
             </section>
 
-            <section className="space-y-1">
+            <section className="space-y-2">
               <h3 className="text-sm font-medium">보완할 점</h3>
-              <p className="text-sm text-muted-foreground">{snapshot.toImprove}</p>
+              <PointList items={snapshot.toImprove} />
             </section>
 
             <section className="space-y-2">
@@ -127,9 +139,9 @@ export function InsightCard() {
               </div>
             </section>
 
-            <section className="space-y-1">
+            <section className="space-y-2">
               <h3 className="text-sm font-medium">다음 포커스</h3>
-              <p className="text-sm text-muted-foreground">{snapshot.nextFocus}</p>
+              <PointList items={snapshot.nextFocus} />
             </section>
           </>
         ) : (
