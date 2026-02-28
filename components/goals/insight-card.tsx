@@ -7,6 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { UnifiedInsightSnapshot, UnifiedInsightResponse } from "@/lib/insights";
 
+function TrendBadge({ value }: { value: number }) {
+  if (value === 0) return null;
+  const isUp = value > 0;
+  return (
+    <span
+      className={`ml-1 text-xs font-medium ${isUp ? "text-green-600" : "text-red-500"}`}
+    >
+      {isUp ? "\u2191" : "\u2193"}
+      {Math.abs(value)}%p
+    </span>
+  );
+}
+
 export function InsightCard() {
   const [period, setPeriod] = useState<"weekly" | "monthly">("weekly");
   const [insights, setInsights] = useState<UnifiedInsightResponse | null>(null);
@@ -101,12 +114,14 @@ export function InsightCard() {
                   <p className="text-xs text-muted-foreground">습관 달성률</p>
                   <p className="text-base font-semibold">
                     {snapshot.metrics.habitCompletionRate}%
+                    <TrendBadge value={snapshot.metrics.habitTrend} />
                   </p>
                 </div>
                 <div className="rounded-md bg-muted p-3">
                   <p className="text-xs text-muted-foreground">할 일 달성률</p>
                   <p className="text-base font-semibold">
                     {snapshot.metrics.todoCompletionRate}%
+                    <TrendBadge value={snapshot.metrics.todoTrend} />
                   </p>
                 </div>
               </div>
