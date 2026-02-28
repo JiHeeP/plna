@@ -1,36 +1,73 @@
+"use client";
+
+import { useState } from "react";
 import { AffirmationCard } from "@/components/dashboard/affirmation-card";
 import { HabitChecklist } from "@/components/dashboard/habit-checklist";
 import { DailyTodoList } from "@/components/dashboard/daily-todo";
 import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { YEAR_START } from "@/lib/constants";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-function getDayInfo() {
-  const now = new Date();
+function toDateString(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function getDayInfo(date: Date) {
   const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const date = now.getDate();
-  const day = dayNames[now.getDay()];
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const dayOfWeek = dayNames[date.getDay()];
 
-  const diffTime = now.getTime() - YEAR_START.getTime();
+  const diffTime = date.getTime() - YEAR_START.getTime();
   const dDay = Math.floor(diffTime / 86400000);
 
-  return { year, month, date, day, dDay };
+  return { year, month, day, dayOfWeek, dDay };
 }
 
 export default function Dashboard() {
-  const { year, month, date, day, dDay } = getDayInfo();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { year, month, day, dayOfWeek, dDay } = getDayInfo(selectedDate);
+  const dateStr = toDateString(selectedDate);
+
+  const goToPrevDay = () => {
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    setSelectedDate(prev);
+  };
+
+  const goToNextDay = () => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    setSelectedDate(next);
+  };
 
   return (
     <div className="space-y-4 px-4 pt-6">
       {/* 날짜 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold">
-          {year}년 {month}월 {date}일 ({day})
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          2026 목표 D+{dDay}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={goToPrevDay}
+            className="p-1 rounded-md hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <h1 className="text-2xl font-bold flex-1 text-center">
+            {month}월 {day}일 ({dayOfWeek})
+          </h1>
+          <button
+            type="button"
+            onClick={goToNextDay}
+            className="p-1 rounded-md hover:bg-accent transition-colors"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mt-0.5 text-center">
+          {year}년 · 2026 목표 D+{dDay}
         </p>
       </div>
 
@@ -38,13 +75,13 @@ export default function Dashboard() {
       <AffirmationCard />
 
       {/* 오늘의 할 일 */}
-      <DailyTodoList />
+      <DailyTodoList date={dateStr} />
 
       {/* 습관 체크리스트 */}
-      <HabitChecklist />
+      <HabitChecklist date={dateStr} />
 
       {/* 오늘의 기록 */}
-      <DailyJournalCard />
+      <DailyJournalCard date={dateStr} />
 
       {/* 스트릭 카운터 */}
       <StreakCounter />

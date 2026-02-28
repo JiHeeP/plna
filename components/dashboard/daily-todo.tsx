@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -13,13 +13,13 @@ function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function DailyTodoList() {
+export function DailyTodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [newText, setNewText] = useState("");
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
 
-  const today = toDateString(new Date());
+  const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const loadTodos = useCallback(async () => {
     const supabase = createClient();
@@ -28,7 +28,7 @@ export function DailyTodoList() {
       const { data, error } = await supabase
         .from("daily_todos")
         .select("*")
-        .eq("date", today)
+        .eq("date", targetDate)
         .order("sort_order")
         .order("created_at");
 
@@ -38,21 +38,21 @@ export function DailyTodoList() {
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      const saved = localStorage.getItem(`todos_${today}`);
+      const saved = localStorage.getItem(`todos_${targetDate}`);
       if (saved) {
         setTodos(JSON.parse(saved));
       }
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [targetDate]);
 
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
 
   const saveLocal = (updated: DailyTodo[]) => {
-    localStorage.setItem(`todos_${today}`, JSON.stringify(updated));
+    localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
   };
 
   const addTodo = async () => {
@@ -62,7 +62,7 @@ export function DailyTodoList() {
     if (useLocal) {
       const newTodo: DailyTodo = {
         id: `local_${Date.now()}`,
-        date: today,
+        date: targetDate,
         text,
         completed: false,
         sort_order: todos.length,
@@ -78,7 +78,7 @@ export function DailyTodoList() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("daily_todos")
-      .insert({ date: today, text, sort_order: todos.length })
+      .insert({ date: targetDate, text, sort_order: todos.length })
       .select()
       .single();
 

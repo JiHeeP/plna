@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { BigThreeCards } from "@/components/goals/big-three-cards";
 import { MilestoneTimeline } from "@/components/goals/milestone-timeline";
 import { NumericTracker } from "@/components/goals/numeric-tracker";
-import { InsightCard } from "@/components/goals/insight-card";
 import { Milestone, NumericTarget, NumericLog } from "@/lib/types";
 
 export default function GoalsPage() {
@@ -57,8 +56,6 @@ export default function GoalsPage() {
   return (
     <div className="px-4 pt-6 pb-24 space-y-6">
       <h1 className="text-2xl font-bold">목표</h1>
-
-      <InsightCard />
 
       <BigThreeCards
         topicCount={topicCount}

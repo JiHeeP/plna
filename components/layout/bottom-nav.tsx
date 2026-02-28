@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Target, MessageCircle, Settings } from "lucide-react";
+import { Home, Target, BarChart3, MessageCircle, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", label: "홈", icon: Home },
   { href: "/goals", label: "목표", icon: Target },
+  { href: "/stats", label: "통계", icon: BarChart3 },
   { href: "/conversations", label: "대화", icon: MessageCircle },
   { href: "/settings", label: "설정", icon: Settings },
 ];
