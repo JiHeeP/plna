@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ const FIELDS = [
   },
 ] as const;
 
-export function DailyJournalCard() {
+export function DailyJournalCard({ date }: { date?: string }) {
   const [journal, setJournal] = useState<DailyJournal | null>(null);
   const [form, setForm] = useState({
     accomplishments: "",
@@ -47,7 +47,7 @@ export function DailyJournalCard() {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const today = toDateString(new Date());
+  const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const loadJournal = useCallback(async () => {
     const supabase = createClient();
@@ -56,7 +56,7 @@ export function DailyJournalCard() {
       const { data, error } = await supabase
         .from("daily_journals")
         .select("*")
-        .eq("date", today)
+        .eq("date", targetDate)
         .single();
 
       if (error && error.code !== "PGRST116") throw error;
@@ -72,7 +72,7 @@ export function DailyJournalCard() {
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      const saved = localStorage.getItem(`journal_${today}`);
+      const saved = localStorage.getItem(`journal_${targetDate}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         setForm(parsed);
@@ -80,7 +80,7 @@ export function DailyJournalCard() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [targetDate]);
 
   useEffect(() => {
     loadJournal();
@@ -107,7 +107,7 @@ export function DailyJournalCard() {
       setSaving(true);
 
       if (useLocal) {
-        localStorage.setItem(`journal_${today}`, JSON.stringify(updatedForm));
+        localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
         setSaving(false);
         setSaveStatus("saved");
         return;
@@ -119,7 +119,7 @@ export function DailyJournalCard() {
           .from("daily_journals")
           .upsert(
             {
-              date: today,
+              date: targetDate,
               ...updatedForm,
               updated_at: new Date().toISOString(),
             },
@@ -135,13 +135,13 @@ export function DailyJournalCard() {
       } catch (err) {
         console.error("저널 저장 실패:", err);
         // Supabase 실패 시 localStorage에 백업 저장
-        localStorage.setItem(`journal_${today}`, JSON.stringify(updatedForm));
+        localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
         setSaveStatus("error");
       } finally {
         setSaving(false);
       }
     },
-    [today, useLocal]
+    [targetDate, useLocal]
   );
 
   const handleChange = (key: keyof typeof form, value: string) => {
