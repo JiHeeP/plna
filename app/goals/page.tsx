@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { BigThreeCards } from "@/components/goals/big-three-cards";
+import { MonthlyGoalCard } from "@/components/goals/monthly-goal-card";
 import { MilestoneTimeline } from "@/components/goals/milestone-timeline";
 import { NumericTracker } from "@/components/goals/numeric-tracker";
 import { Milestone, NumericTarget, NumericLog } from "@/lib/types";
@@ -65,6 +66,8 @@ export default function GoalsPage() {
           assets: getMilestoneStats("assets"),
         }}
       />
+
+      <MonthlyGoalCard />
 
       <MilestoneTimeline milestones={milestones} onUpdate={fetchData} />
 

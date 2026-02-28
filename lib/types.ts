@@ -101,4 +101,15 @@ export interface DailyJournal {
   updated_at: string;
 }
 
+export interface MonthlyGoal {
+  id: string;
+  month: string; // 'YYYY-MM'
+  text: string;
+  pillar: "career" | "identity" | "assets";
+  completed: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Pillar = "career" | "identity" | "assets";
