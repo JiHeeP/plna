@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import type { UnifiedInsightSnapshot, UnifiedInsightResponse } from "@/lib/insights";
 
 function TrendBadge({ value }: { value: number }) {
@@ -35,7 +34,8 @@ function PointList({ items }: { items: string[] }) {
 export function InsightCard() {
   const [period, setPeriod] = useState<"weekly" | "monthly">("weekly");
   const [insights, setInsights] = useState<UnifiedInsightResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,16 +44,13 @@ export function InsightCard() {
       if (!res.ok) throw new Error("failed");
       const data: UnifiedInsightResponse = await res.json();
       setInsights(data);
+      setHasLoaded(true);
     } catch {
       setInsights({ weekly: null, monthly: null });
     } finally {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const snapshot: UnifiedInsightSnapshot | null = insights?.[period] ?? null;
 
@@ -100,14 +97,9 @@ export function InsightCard() {
       <CardContent className="pt-0 space-y-4">
         {snapshot ? (
           <>
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                {snapshot.dateRange.start} ~ {snapshot.dateRange.end}
-              </p>
-              <Badge variant="outline" className="text-[10px]">
-                {snapshot.source === "ai" ? "AI 분석" : "규칙 기반"}
-              </Badge>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {snapshot.dateRange.start} ~ {snapshot.dateRange.end}
+            </p>
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">잘한 점</h3>
@@ -118,6 +110,15 @@ export function InsightCard() {
               <h3 className="text-sm font-medium">보완할 점</h3>
               <PointList items={snapshot.toImprove} />
             </section>
+
+            {snapshot.surpriseInsight && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">의외의 발견</h3>
+                <p className="text-sm text-muted-foreground">
+                  {snapshot.surpriseInsight}
+                </p>
+              </section>
+            )}
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">핵심 지표</h3>
@@ -146,7 +147,9 @@ export function InsightCard() {
           </>
         ) : (
           <p className="text-sm text-muted-foreground py-4">
-            아직 생성된 인사이트가 없습니다
+            {hasLoaded
+              ? "아직 생성된 인사이트가 없습니다"
+              : "새로고침을 눌러 AI 인사이트를 불러오세요"}
           </p>
         )}
       </CardContent>
