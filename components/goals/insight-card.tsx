@@ -1,109 +1,126 @@
 "use client";
 
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useEffect, useState } from "react";
-import type { InsightPayload } from "@/lib/insights";
-
-function confidenceLabel(confidence: InsightPayload["confidence"]) {
-  if (confidence === "high") return "신뢰도 높음";
-  if (confidence === "medium") return "신뢰도 중간";
-  return "신뢰도 낮음";
-}
+import type { UnifiedInsightSnapshot, UnifiedInsightResponse } from "@/lib/insights";
 
 export function InsightCard() {
-  const [insight, setInsight] = useState<InsightPayload | null>(null);
+  const [period, setPeriod] = useState<"weekly" | "monthly">("weekly");
+  const [insights, setInsights] = useState<UnifiedInsightResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/insights", { cache: "no-store" });
-      const data = (await res.json()) as InsightPayload;
-      setInsight(data);
+      if (!res.ok) throw new Error("failed");
+      const data: UnifiedInsightResponse = await res.json();
+      setInsights(data);
     } catch {
-      setInsight(null);
+      setInsights({ weekly: null, monthly: null });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const snapshot: UnifiedInsightSnapshot | null = insights?.[period] ?? null;
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-5 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base">🧠 AI 인사이트</CardTitle>
-          <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-            새로고침
-          </Button>
+          <CardTitle className="text-base">AI 인사이트</CardTitle>
+          <div className="flex items-center gap-2">
+            <Tabs
+              value={period}
+              onValueChange={(v) => setPeriod(v as "weekly" | "monthly")}
+            >
+              <TabsList className="h-8">
+                <TabsTrigger value="weekly" className="text-xs px-3 h-7">
+                  주간
+                </TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs px-3 h-7">
+                  월간
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+              새로고침
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        {loading && <div className="text-muted-foreground">인사이트 생성 중...</div>}
-        {!loading && !insight && <div className="text-muted-foreground">인사이트를 불러오지 못했습니다.</div>}
 
-        {!loading && insight && (
+      <CardContent className="pt-0 space-y-4">
+        {snapshot ? (
           <>
-            <div className="flex items-center gap-2">
-              <Badge variant={insight.status === "ok" ? "default" : "secondary"}>
-                {insight.status === "ok" ? "생성 완료" : "데이터 보강 필요"}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {snapshot.dateRange.start} ~ {snapshot.dateRange.end}
+              </p>
+              <Badge variant="outline" className="text-[10px]">
+                {snapshot.source === "ai" ? "AI 분석" : "규칙 기반"}
               </Badge>
-              <Badge variant="outline">{confidenceLabel(insight.confidence)}</Badge>
             </div>
 
-            <p>{insight.summary}</p>
+            <section className="space-y-1">
+              <h3 className="text-sm font-medium">잘한 점</h3>
+              <p className="text-sm text-muted-foreground">{snapshot.wentWell}</p>
+            </section>
 
-            {insight.causes.length > 0 && (
-              <div>
-                <div className="font-medium mb-1">원인 가설</div>
-                <ul className="list-disc pl-5 space-y-1">
-                  {insight.causes.map((cause) => (
-                    <li key={cause}>{cause}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <section className="space-y-1">
+              <h3 className="text-sm font-medium">보완할 점</h3>
+              <p className="text-sm text-muted-foreground">{snapshot.toImprove}</p>
+            </section>
 
-            {insight.actions.length > 0 && (
-              <div>
-                <div className="font-medium mb-1">다음 행동</div>
-                <ul className="list-disc pl-5 space-y-1">
-                  {insight.actions.map((action) => (
-                    <li key={action.title}>
-                      {action.title} (난이도 {action.difficulty}, 기대효과 {action.expectedImpact})
-                    </li>
-                  ))}
-                </ul>
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">핵심 지표</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">습관 달성률</p>
+                  <p className="text-base font-semibold">
+                    {snapshot.metrics.habitCompletionRate}%
+                  </p>
+                </div>
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">할 일 달성률</p>
+                  <p className="text-base font-semibold">
+                    {snapshot.metrics.todoCompletionRate}%
+                  </p>
+                </div>
               </div>
-            )}
+            </section>
 
-            {insight.evidence.length > 0 && (
-              <div>
-                <div className="font-medium mb-1">근거 데이터</div>
-                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                  {insight.evidence.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {insight.followUpQuestions.length > 0 && (
-              <div>
-                <div className="font-medium mb-1">추가 입력 요청</div>
-                <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                  {insight.followUpQuestions.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <section className="space-y-1">
+              <h3 className="text-sm font-medium">다음 포커스</h3>
+              <p className="text-sm text-muted-foreground">{snapshot.nextFocus}</p>
+            </section>
           </>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4">
+            아직 생성된 인사이트가 없습니다
+          </p>
         )}
       </CardContent>
     </Card>
