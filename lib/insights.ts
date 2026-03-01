@@ -30,6 +30,7 @@ export interface UnifiedInsightSnapshot {
   wentWell: string[];    // 3가지 포인트
   toImprove: string[];   // 3가지 포인트
   nextFocus: string[];   // 3가지 포인트
+  surpriseInsight?: string; // 의외의 인사이트
   metrics: InsightMetrics;
   source: "ai" | "rule";
 }
@@ -44,6 +45,7 @@ export interface AiInsightText {
   wentWell: string[];    // 3가지 포인트
   toImprove: string[];   // 3가지 포인트
   nextFocus: string[];   // 3가지 포인트
+  surpriseInsight?: string; // 의외의 인사이트
 }
 
 /* ── 스마트 규칙 기반 폴백 ── */
