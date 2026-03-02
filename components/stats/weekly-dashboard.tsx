@@ -166,7 +166,7 @@ export function WeeklyDashboard() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:space-y-6">
       {/* 헤더 + 주차 네비게이션 */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">주간 대시보드</h2>
@@ -207,7 +207,7 @@ export function WeeklyDashboard() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-[640px] w-full text-xs">
+            <table className="min-w-[640px] w-full text-xs lg:min-w-0 lg:text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="sticky left-0 bg-background z-10 p-2 text-left font-medium w-20 min-w-20">
@@ -219,7 +219,7 @@ export function WeeklyDashboard() {
                     return (
                       <th
                         key={day}
-                        className="p-2 text-center font-medium min-w-[72px]"
+                        className="p-2 text-center font-medium min-w-[72px] lg:min-w-[92px]"
                       >
                         <div>{day}</div>
                         <div className="text-[10px] text-muted-foreground font-normal">
