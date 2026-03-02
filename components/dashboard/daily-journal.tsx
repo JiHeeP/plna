@@ -50,7 +50,9 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const loadJournal = useCallback(async () => {
+    setLoading(true);
     const supabase = createClient();
+    const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
 
     try {
       const { data, error } = await supabase
@@ -64,10 +66,13 @@ export function DailyJournalCard({ date }: { date?: string }) {
       if (data) {
         setJournal(data);
         setForm({
-          accomplishments: data.accomplishments,
-          to_improve: data.to_improve,
-          went_well: data.went_well,
+          accomplishments: data.accomplishments ?? "",
+          to_improve: data.to_improve ?? "",
+          went_well: data.went_well ?? "",
         });
+      } else {
+        setJournal(null);
+        setForm(emptyForm);
       }
       setUseLocal(false);
     } catch {
@@ -76,6 +81,9 @@ export function DailyJournalCard({ date }: { date?: string }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         setForm(parsed);
+      } else {
+        setJournal(null);
+        setForm(emptyForm);
       }
     } finally {
       setLoading(false);
@@ -83,6 +91,9 @@ export function DailyJournalCard({ date }: { date?: string }) {
   }, [targetDate]);
 
   useEffect(() => {
+    // 날짜 전환 시 이전 날짜의 대기 중 저장 타이머 취소
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveStatus("idle");
     loadJournal();
   }, [loadJournal]);
 
