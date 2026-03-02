@@ -6,7 +6,9 @@ import { HabitChecklist } from "@/components/dashboard/habit-checklist";
 import { DailyTodoList } from "@/components/dashboard/daily-todo";
 import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
+import { WeeklyGoalsDisplay } from "@/components/dashboard/weekly-goals-display";
 import { YEAR_START } from "@/lib/constants";
+import { getISOWeekString } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 function toDateString(d: Date) {
@@ -30,6 +32,7 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { year, month, day, dayOfWeek, dDay } = getDayInfo(selectedDate);
   const dateStr = toDateString(selectedDate);
+  const currentWeek = getISOWeekString(selectedDate);
 
   const goToPrevDay = () => {
     const prev = new Date(selectedDate);
@@ -70,6 +73,9 @@ export default function Dashboard() {
           {year}년 · 2026 목표 D+{dDay}
         </p>
       </div>
+
+      {/* 이번 주 목표 */}
+      <WeeklyGoalsDisplay week={currentWeek} />
 
       {/* 오늘의 확언 */}
       <AffirmationCard />
