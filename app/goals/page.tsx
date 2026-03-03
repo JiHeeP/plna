@@ -2,16 +2,19 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { BigThreeCards } from "@/components/goals/big-three-cards";
+import { SubGoalOverview } from "@/components/goals/sub-goal-overview";
+import { QuarterlyGoalCard } from "@/components/goals/quarterly-goal-card";
 import { WeeklyGoalCard } from "@/components/goals/weekly-goal-card";
 import { MonthlyGoalCard } from "@/components/goals/monthly-goal-card";
 import { MilestoneTimeline } from "@/components/goals/milestone-timeline";
 import { NumericTracker } from "@/components/goals/numeric-tracker";
-import { Milestone, NumericTarget, NumericLog } from "@/lib/types";
+import { Milestone, NumericTarget, NumericLog, SubGoal } from "@/lib/types";
 
 export default function GoalsPage() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [targets, setTargets] = useState<NumericTarget[]>([]);
   const [logs, setLogs] = useState<NumericLog[]>([]);
+  const [subGoals, setSubGoals] = useState<SubGoal[]>([]);
   const [topicCount, setTopicCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -23,12 +26,14 @@ export default function GoalsPage() {
       setMilestones(data.milestones ?? []);
       setTargets(data.targets ?? []);
       setLogs(data.logs ?? []);
+      setSubGoals(data.subGoals ?? []);
       setTopicCount(data.topicCount ?? 0);
     } catch (e) {
       console.error("목표 데이터 로딩 실패:", e);
       setMilestones([]);
       setTargets([]);
       setLogs([]);
+      setSubGoals([]);
       setTopicCount(0);
     } finally {
       setLoading(false);
@@ -67,6 +72,10 @@ export default function GoalsPage() {
           assets: getMilestoneStats("assets"),
         }}
       />
+
+      <SubGoalOverview subGoals={subGoals} onUpdate={fetchData} />
+
+      <QuarterlyGoalCard />
 
       <WeeklyGoalCard />
 
