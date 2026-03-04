@@ -132,4 +132,36 @@ export interface WeeklyReflection {
   updated_at: string;
 }
 
+export interface QuarterlyGoal {
+  id: string;
+  quarter: string; // 'YYYY-Qn' (예: '2026-Q1')
+  text: string;
+  pillar: "career" | "identity" | "assets";
+  completed: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubGoal {
+  id: string;
+  pillar: "career" | "identity" | "assets";
+  name: string;
+  positioning: string | null;
+  annual_target: string | null;
+  quarterly_target: string | null;
+  monthly_target: string | null;
+  achievement_rate: number;
+  retrospective: string | null;
+  deadline: string | null;
+  daily_practice: string | null;
+  weekly_practice: string | null;
+  monthly_practice: string | null;
+  practice_time: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type Pillar = "career" | "identity" | "assets";
