@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Target, BarChart3, LayoutDashboard, MessageCircle, Settings } from "lucide-react";
+import { Home, Target, BarChart3, LayoutDashboard, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -11,7 +11,6 @@ const NAV_ITEMS = [
   { href: "/stats", label: "통계", icon: BarChart3 },
   { href: "/weekly-dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/conversations", label: "대화", icon: MessageCircle },
-  { href: "/settings", label: "설정", icon: Settings },
 ];
 
 export function BottomNav() {
