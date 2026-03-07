@@ -74,6 +74,59 @@ async function saveBacklogItems(
   return { saved: rows.length, error: error?.message ?? null };
 }
 
+function cleanTodoText(text: string) {
+  return text
+    .replace(/^\s*[-•]\s*/, "")
+    .replace(/^\s*\d+\s*[).]\s*/, "")
+    .replace(/^\s*\(?\d+\)?\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractDeadline(text: string) {
+  const m = text.match(/(\d{1,2}:\d{2}|\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?)/);
+  return m?.[1]?.replace(/\s+/g, "") || "";
+}
+
+function normalizeTopItem(raw: string) {
+  let t = cleanTodoText(raw)
+    .replace(/^(최우선\/?마감|최우선|마감)\s*[:：]?\s*/i, "")
+    .replace(/^(수업 준비가 제일 먼저 와야함\/?)/, "수업 준비/")
+    .trim();
+
+  if (/수업\s*준비/.test(t)) {
+    const dl = extractDeadline(t);
+    return dl ? `수업 준비 (마감 ${dl})` : "수업 준비";
+  }
+
+  if (/첫\s*30분/.test(t)) {
+    t = t.replace(/^첫\s*30분\s*[:：]?\s*/i, "");
+    return `첫 30분: ${t}`;
+  }
+
+  return t;
+}
+
+function canonicalKey(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/\(마감[^)]*\)/g, "")
+    .replace(/[^가-힣a-z0-9]/g, "")
+    .trim();
+}
+
+function dedupeTodos(items: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items.map(normalizeTopItem).filter(Boolean)) {
+    const key = canonicalKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 function parseForOps(sourceText: string) {
   const completedRaw = extractSection(sourceText, "오늘 완료:", ["미완료:", "미완료 이유:", "22:05 보완 질문 시작"]);
   const incompleteRaw = extractSection(sourceText, "미완료:", ["미완료 이유:", "22:05 보완 질문 시작"]);
@@ -85,11 +138,11 @@ function parseForOps(sourceText: string) {
   const answer4 = extractAnswer(sourceText, 4);
   const answer5 = extractAnswer(sourceText, 5);
 
-  const completed = splitBulletList(completedRaw);
-  const incomplete = splitBulletList(incompleteRaw);
+  const completed = splitBulletList(completedRaw).map(cleanTodoText);
+  const incomplete = splitBulletList(incompleteRaw).map(normalizeTopItem);
 
   if (answer3) {
-    const mustCarry = answer3.replace(/^[-•]\s*/, "").trim();
+    const mustCarry = normalizeTopItem(answer3);
     if (mustCarry && !incomplete.includes(mustCarry)) incomplete.unshift(mustCarry);
   }
 
@@ -98,13 +151,11 @@ function parseForOps(sourceText: string) {
     .map((d) => `내일 ${d}`)
     .slice(0, 5);
 
-  const tomorrowTop = [
-    answer1?.replace(/\/$/, "").trim(),
-    answer4?.replace(/^\(?\d+\)?\s*/, "").trim(),
-    answer5 ? `첫 30분: ${answer5.trim().replace(/^첫\s*30분\s*[:：]\s*/i, "")}` : "",
-  ]
-    .filter(Boolean)
-    .slice(0, 3);
+  const tomorrowTop = dedupeTodos([
+    normalizeTopItem(answer1),
+    normalizeTopItem(answer4),
+    normalizeTopItem(answer5),
+  ]).slice(0, 3);
 
   const incompleteReason = [reasonRaw, answer2 ? `[보완 Q2]\n${answer2}` : ""].filter(Boolean).join("\n\n");
 
@@ -190,12 +241,10 @@ export async function POST(request: NextRequest) {
     const date = body.date || defaultIntakeDate();
     const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "next-day");
     const parsed = parseForOps(sourceText);
-    const backlogCandidates = Array.from(
-      new Set([
-        ...parsed.tomorrowTop,
-        ...parsed.incomplete,
-      ].map((x) => x.trim()).filter(Boolean)),
-    );
+    const backlogCandidates = dedupeTodos([
+      ...parsed.tomorrowTop,
+      ...parsed.incomplete,
+    ]);
 
     await saveBacklogItems(supabase, date, backlogCandidates);
 

@@ -59,6 +59,59 @@ function extractAnswer(text: string, n: number) {
   return text.match(regex)?.[1]?.trim() || "";
 }
 
+function cleanTodoText(text: string) {
+  return text
+    .replace(/^\s*[-•]\s*/, "")
+    .replace(/^\s*\d+\s*[).]\s*/, "")
+    .replace(/^\s*\(?\d+\)?\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractDeadline(text: string) {
+  const m = text.match(/(\d{1,2}:\d{2}|\d{1,2}\s*시(?:\s*\d{1,2}\s*분)?)/);
+  return m?.[1]?.replace(/\s+/g, "") || "";
+}
+
+function normalizeTopItem(raw: string) {
+  let t = cleanTodoText(raw)
+    .replace(/^(최우선\/?마감|최우선|마감)\s*[:：]?\s*/i, "")
+    .replace(/^(수업 준비가 제일 먼저 와야함\/?)/, "수업 준비/")
+    .trim();
+
+  if (/수업\s*준비/.test(t)) {
+    const dl = extractDeadline(t);
+    return dl ? `수업 준비 (마감 ${dl})` : "수업 준비";
+  }
+
+  if (/첫\s*30분/.test(t)) {
+    t = t.replace(/^첫\s*30분\s*[:：]?\s*/i, "");
+    return `첫 30분: ${t}`;
+  }
+
+  return t;
+}
+
+function canonicalKey(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/\(마감[^)]*\)/g, "")
+    .replace(/[^가-힣a-z0-9]/g, "")
+    .trim();
+}
+
+function dedupeTodos(items: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items.map(normalizeTopItem).filter(Boolean)) {
+    const key = canonicalKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 function parseRisks(answer2: string) {
   if (!answer2) return [];
   const bullets = splitBulletList(answer2);
@@ -78,14 +131,11 @@ function parseDeadlines(answer1: string) {
 }
 
 function parseTomorrowTop(answer1: string, answer4: string, answer5: string) {
-  const items: string[] = [];
-  if (answer1) items.push(answer1.replace(/\/$/, "").trim());
-  if (answer4) items.push(answer4.replace(/^\(?\d+\)?\s*/, "").trim());
-  if (answer5) {
-    const a5 = answer5.trim().replace(/^첫\s*30분\s*[:：]\s*/i, "");
-    items.push(`첫 30분: ${a5}`);
-  }
-  return items.filter(Boolean).slice(0, 3);
+  return dedupeTodos([
+    normalizeTopItem(answer1),
+    normalizeTopItem(answer4),
+    normalizeTopItem(answer5),
+  ]).slice(0, 3);
 }
 
 async function findAutoChatText(supabase: Awaited<ReturnType<typeof createClient>>, date: string) {
@@ -144,10 +194,10 @@ function parseChatText(text: string) {
   const answer4 = extractAnswer(text, 4);
   const answer5 = extractAnswer(text, 5);
 
-  const completed = splitBulletList(completedRaw);
-  const incomplete = splitBulletList(incompleteRaw);
+  const completed = splitBulletList(completedRaw).map(cleanTodoText);
+  const incomplete = splitBulletList(incompleteRaw).map(normalizeTopItem);
   if (answer3) {
-    const mustCarry = answer3.replace(/^[-•]\s*/, "").trim();
+    const mustCarry = normalizeTopItem(answer3);
     if (mustCarry && !incomplete.includes(mustCarry)) incomplete.unshift(mustCarry);
   }
 
@@ -185,12 +235,10 @@ export async function POST(req: NextRequest) {
     const tomorrowTop = (body.tomorrowTop ?? parsed?.tomorrowTop ?? []).filter(Boolean).slice(0, 3);
     const risks = (body.risks ?? parsed?.risks ?? []).filter(Boolean).slice(0, 3);
 
-    const backlogCandidates = Array.from(
-      new Set([
-        ...tomorrowTop,
-        ...incomplete,
-      ].map((x) => x.trim()).filter(Boolean)),
-    );
+    const backlogCandidates = dedupeTodos([
+      ...tomorrowTop,
+      ...incomplete,
+    ]);
 
     const backlogResult = await saveBacklogItems(supabase, date, backlogCandidates);
 
