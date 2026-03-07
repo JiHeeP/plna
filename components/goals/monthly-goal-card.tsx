@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { MonthlyGoal } from "@/lib/types";
 import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
-import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, GripVertical, Pencil, Check } from "lucide-react";
 
 const PILLAR_OPTIONS: { value: MonthlyGoal["pillar"]; label: string }[] = [
   { value: "career", label: "일" },
@@ -48,6 +48,7 @@ export function MonthlyGoalCard() {
   const [newText, setNewText] = useState("");
   const [newPillar, setNewPillar] = useState<MonthlyGoal["pillar"]>("career");
   const [showForm, setShowForm] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -130,7 +131,20 @@ export function MonthlyGoalCard() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">이번 달 목표</h2>
-        {goals.length > 0 && <Badge variant="secondary" className="text-xs">{completedCount}/{goals.length}</Badge>}
+        <div className="flex items-center gap-2">
+          {goals.length > 0 && <Badge variant="secondary" className="text-xs">{completedCount}/{goals.length}</Badge>}
+          <Button
+            variant={editMode ? "default" : "ghost"}
+            size="icon-xs"
+            onClick={() => {
+              setEditMode((v) => !v);
+              setEditingId(null);
+            }}
+            title={editMode ? "수정 완료" : "수정 모드"}
+          >
+            {editMode ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -172,11 +186,11 @@ export function MonthlyGoalCard() {
               {goals.map((goal, idx) => (
                 <div
                   key={goal.id}
-                  draggable
-                  onDragStart={() => setDraggingId(goal.id)}
-                  onDragOver={(e) => e.preventDefault()}
+                  draggable={editMode}
+                  onDragStart={() => editMode && setDraggingId(goal.id)}
+                  onDragOver={(e) => editMode && e.preventDefault()}
                   onDrop={async () => {
-                    if (!draggingId || draggingId === goal.id) return;
+                    if (!editMode || !draggingId || draggingId === goal.id) return;
                     const updated = reorder(goals, draggingId, goal.id).map((g, i) => ({ ...g, sort_order: i }));
                     setGoals(updated);
                     setDraggingId(null);
@@ -186,39 +200,43 @@ export function MonthlyGoalCard() {
                   onDragEnd={() => setDraggingId(null)}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  {editMode && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />}
                   <span className="text-[11px] font-semibold text-muted-foreground w-5">#{idx + 1}</span>
                   <button onClick={() => toggleCompleted(goal)}>
                     {goal.completed ? <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" /> : <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />}
                   </button>
                   <div className="flex-1 min-w-0">
-                    {editingId === goal.id ? (
-                      <Input
-                        value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
-                        onBlur={() => saveEdit(goal.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveEdit(goal.id);
-                          if (e.key === "Escape") setEditingId(null);
-                        }}
-                        className="h-7 text-sm"
-                        autoFocus
-                      />
+                    {editMode ? (
+                      editingId === goal.id ? (
+                        <Input
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onBlur={() => saveEdit(goal.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit(goal.id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          className="h-7 text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(goal.id);
+                            setEditingText(goal.text);
+                          }}
+                          className="text-sm text-left"
+                        >
+                          {goal.text}
+                        </button>
+                      )
                     ) : (
-                      <button
-                        type="button"
-                        onDoubleClick={() => {
-                          setEditingId(goal.id);
-                          setEditingText(goal.text);
-                        }}
-                        className={`text-sm text-left ${goal.completed ? "line-through text-muted-foreground" : ""}`}
-                      >
-                        {goal.text}
-                      </button>
+                      <span className={`text-sm ${goal.completed ? "line-through text-muted-foreground" : ""}`}>{goal.text}</span>
                     )}
                   </div>
                   <Badge variant="outline" className="text-[10px] flex-shrink-0">{PILLAR_LABELS[goal.pillar]}</Badge>
-                  <button onClick={() => deleteGoal(goal.id)} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" /></button>
+                  {editMode && <button onClick={() => deleteGoal(goal.id)} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" /></button>}
                 </div>
               ))}
             </div>

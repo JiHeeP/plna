@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, X, GripVertical } from "lucide-react";
+import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DailyTodo } from "@/lib/types";
 
@@ -28,6 +28,7 @@ export function DailyTodoList({ date }: { date?: string }) {
   const [newText, setNewText] = useState("");
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -181,9 +182,22 @@ export function DailyTodoList({ date }: { date?: string }) {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">오늘의 할 일</CardTitle>
-          {todos.length > 0 && (
-            <span className="text-sm text-muted-foreground">{completedCount}/{todos.length} 완료</span>
-          )}
+          <div className="flex items-center gap-2">
+            {todos.length > 0 && (
+              <span className="text-sm text-muted-foreground">{completedCount}/{todos.length} 완료</span>
+            )}
+            <Button
+              variant={editMode ? "default" : "ghost"}
+              size="icon-xs"
+              onClick={() => {
+                setEditMode((v) => !v);
+                setEditingId(null);
+              }}
+              title={editMode ? "수정 완료" : "수정 모드"}
+            >
+              {editMode ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-1">
@@ -191,11 +205,11 @@ export function DailyTodoList({ date }: { date?: string }) {
           <div
             key={todo.id}
             className={`flex items-center gap-2 rounded-lg px-2 py-2.5 group transition-colors ${draggingId === todo.id ? "bg-accent" : "hover:bg-accent"}`}
-            draggable
-            onDragStart={() => setDraggingId(todo.id)}
-            onDragOver={(e) => e.preventDefault()}
+            draggable={editMode}
+            onDragStart={() => editMode && setDraggingId(todo.id)}
+            onDragOver={(e) => editMode && e.preventDefault()}
             onDrop={async () => {
-              if (!draggingId || draggingId === todo.id) return;
+              if (!editMode || !draggingId || draggingId === todo.id) return;
               const updated = reorder(todos, draggingId, todo.id).map((t, i) => ({ ...t, sort_order: i }));
               setTodos(updated);
               setDraggingId(null);
@@ -204,39 +218,49 @@ export function DailyTodoList({ date }: { date?: string }) {
             }}
             onDragEnd={() => setDraggingId(null)}
           >
-            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-            <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+            {editMode ? (
+              <>
+                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+              </>
+            ) : (
+              <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+            )}
             <Checkbox checked={todo.completed} onCheckedChange={() => toggleTodo(todo.id)} />
 
-            {editingId === todo.id ? (
-              <Input
-                value={editingText}
-                onChange={(e) => setEditingText(e.target.value)}
-                onBlur={() => saveEdit(todo.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") saveEdit(todo.id);
-                  if (e.key === "Escape") setEditingId(null);
-                }}
-                className="h-8 text-sm"
-                autoFocus
-              />
+            {editMode ? (
+              editingId === todo.id ? (
+                <Input
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onBlur={() => saveEdit(todo.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit(todo.id);
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-8 text-sm"
+                  autoFocus
+                />
+              ) : (
+                <button type="button" onClick={() => startEdit(todo)} className="flex-1 text-left text-sm">
+                  {todo.text}
+                </button>
+              )
             ) : (
-              <button
-                type="button"
-                onDoubleClick={() => startEdit(todo)}
-                className={`flex-1 text-left text-sm ${todo.completed ? "line-through text-muted-foreground" : ""}`}
-              >
+              <span className={`flex-1 text-left text-sm ${todo.completed ? "line-through text-muted-foreground" : ""}`}>
                 {todo.text}
-              </button>
+              </span>
             )}
 
-            <button
-              type="button"
-              onClick={() => deleteTodo(todo.id)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            {editMode && (
+              <button
+                type="button"
+                onClick={() => deleteTodo(todo.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         ))}
 
