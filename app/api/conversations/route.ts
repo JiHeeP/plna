@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { toDateString } from "@/lib/utils";
 
-function nextDate(dateStr: string) {
+function resolveTargetTodoDate(dateStr: string, mode?: "same-day" | "next-day") {
+  if (mode === "same-day") return dateStr;
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + 1);
   return toDateString(d);
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
   if (shouldAutoOps) {
     const date = body.date || toDateString(new Date());
-    const targetTodoDate = nextDate(date);
+    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "same-day");
     const parsed = parseForOps(sourceText);
 
     const wentWell = parsed.completed.length

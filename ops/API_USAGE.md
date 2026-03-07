@@ -3,11 +3,14 @@
 ## Evening intake (22:00)
 
 - `POST /api/ops/evening-intake`
+- 기본 동작: 할 일은 **당일(date) 즉시 생성** (`todoDateMode` 기본값 `same-day`)
+- 필요시 `todoDateMode: "next-day"`로 예전 방식 유지 가능
 
 ## Conversation save → auto intake (new)
 
 - `POST /api/conversations` with `source_text` (or `sourceText`) and `autoOps` (default true)
-- if text matches night-log pattern (`오늘 완료/미완료/보완질문`), it auto-writes journal + next-day todos.
+- if text matches night-log pattern (`오늘 완료/미완료/보완질문`), it auto-writes journal + todos.
+- todo 생성일은 기본 `same-day`(즉시 반영), 필요시 `todoDateMode: "next-day"` 지정.
 
 Example:
 

@@ -12,9 +12,11 @@ interface EveningIntakeBody {
   deadlines?: string[];
   chatText?: string;
   autoFromLatestConversation?: boolean;
+  todoDateMode?: "same-day" | "next-day";
 }
 
-function nextDate(dateStr: string) {
+function resolveTargetTodoDate(dateStr: string, mode?: "same-day" | "next-day") {
+  if (mode === "same-day") return dateStr;
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + 1);
   return toDateString(d);
@@ -124,7 +126,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createClient();
 
     const date = body.date || toDateString(new Date());
-    const targetTodoDate = nextDate(date);
+    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "same-day");
 
     const autoChatText = body.autoFromLatestConversation
       ? await findAutoChatText(supabase, date)
