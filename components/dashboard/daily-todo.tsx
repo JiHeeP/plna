@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, GripVertical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { DailyTodo } from "@/lib/types";
 
@@ -13,11 +13,24 @@ function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function reorder<T extends { id: string }>(items: T[], activeId: string, overId: string) {
+  const from = items.findIndex((x) => x.id === activeId);
+  const to = items.findIndex((x) => x.id === overId);
+  if (from < 0 || to < 0 || from === to) return items;
+  const cloned = [...items];
+  const [moved] = cloned.splice(from, 1);
+  cloned.splice(to, 0, moved);
+  return cloned;
+}
+
 export function DailyTodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [newText, setNewText] = useState("");
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
@@ -39,9 +52,7 @@ export function DailyTodoList({ date }: { date?: string }) {
     } catch {
       setUseLocal(true);
       const saved = localStorage.getItem(`todos_${targetDate}`);
-      if (saved) {
-        setTodos(JSON.parse(saved));
-      }
+      if (saved) setTodos(JSON.parse(saved));
     } finally {
       setLoading(false);
     }
@@ -53,6 +64,16 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const saveLocal = (updated: DailyTodo[]) => {
     localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
+  };
+
+  const persistOrder = async (ordered: DailyTodo[]) => {
+    if (useLocal) return;
+    const supabase = createClient();
+    await Promise.all(
+      ordered.map((t, idx) =>
+        supabase.from("daily_todos").update({ sort_order: idx }).eq("id", t.id),
+      ),
+    );
   };
 
   const addTodo = async () => {
@@ -83,7 +104,6 @@ export function DailyTodoList({ date }: { date?: string }) {
       .single();
 
     if (error) return;
-
     setTodos((prev) => [...prev, data]);
     setNewText("");
   };
@@ -92,9 +112,7 @@ export function DailyTodoList({ date }: { date?: string }) {
     const todo = todos.find((t) => t.id === id);
     if (!todo) return;
 
-    const updated = todos.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
+    const updated = todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
     setTodos(updated);
 
     if (useLocal) {
@@ -103,10 +121,29 @@ export function DailyTodoList({ date }: { date?: string }) {
     }
 
     const supabase = createClient();
-    await supabase
-      .from("daily_todos")
-      .update({ completed: !todo.completed })
-      .eq("id", id);
+    await supabase.from("daily_todos").update({ completed: !todo.completed }).eq("id", id);
+  };
+
+  const startEdit = (todo: DailyTodo) => {
+    setEditingId(todo.id);
+    setEditingText(todo.text);
+  };
+
+  const saveEdit = async (id: string) => {
+    const text = editingText.trim();
+    if (!text) return;
+
+    const updated = todos.map((t) => (t.id === id ? { ...t, text } : t));
+    setTodos(updated);
+    setEditingId(null);
+
+    if (useLocal) {
+      saveLocal(updated);
+      return;
+    }
+
+    const supabase = createClient();
+    await supabase.from("daily_todos").update({ text }).eq("id", id);
   };
 
   const deleteTodo = async (id: string) => {
@@ -120,6 +157,7 @@ export function DailyTodoList({ date }: { date?: string }) {
 
     const supabase = createClient();
     await supabase.from("daily_todos").delete().eq("id", id);
+    await persistOrder(updated);
   };
 
   const completedCount = todos.filter((t) => t.completed).length;
@@ -144,30 +182,54 @@ export function DailyTodoList({ date }: { date?: string }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">오늘의 할 일</CardTitle>
           {todos.length > 0 && (
-            <span className="text-sm text-muted-foreground">
-              {completedCount}/{todos.length} 완료
-            </span>
+            <span className="text-sm text-muted-foreground">{completedCount}/{todos.length} 완료</span>
           )}
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-1">
-        {/* 할 일 목록 */}
-        {todos.map((todo) => (
+        {todos.map((todo, idx) => (
           <div
             key={todo.id}
-            className="flex items-center gap-3 rounded-lg px-2 py-2.5 group hover:bg-accent transition-colors"
+            className={`flex items-center gap-2 rounded-lg px-2 py-2.5 group transition-colors ${draggingId === todo.id ? "bg-accent" : "hover:bg-accent"}`}
+            draggable
+            onDragStart={() => setDraggingId(todo.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={async () => {
+              if (!draggingId || draggingId === todo.id) return;
+              const updated = reorder(todos, draggingId, todo.id).map((t, i) => ({ ...t, sort_order: i }));
+              setTodos(updated);
+              setDraggingId(null);
+              if (useLocal) saveLocal(updated);
+              else await persistOrder(updated);
+            }}
+            onDragEnd={() => setDraggingId(null)}
           >
-            <Checkbox
-              checked={todo.completed}
-              onCheckedChange={() => toggleTodo(todo.id)}
-            />
-            <span
-              className={`flex-1 text-sm ${
-                todo.completed ? "line-through text-muted-foreground" : ""
-              }`}
-            >
-              {todo.text}
-            </span>
+            <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+            <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+            <Checkbox checked={todo.completed} onCheckedChange={() => toggleTodo(todo.id)} />
+
+            {editingId === todo.id ? (
+              <Input
+                value={editingText}
+                onChange={(e) => setEditingText(e.target.value)}
+                onBlur={() => saveEdit(todo.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit(todo.id);
+                  if (e.key === "Escape") setEditingId(null);
+                }}
+                className="h-8 text-sm"
+                autoFocus
+              />
+            ) : (
+              <button
+                type="button"
+                onDoubleClick={() => startEdit(todo)}
+                className={`flex-1 text-left text-sm ${todo.completed ? "line-through text-muted-foreground" : ""}`}
+              >
+                {todo.text}
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => deleteTodo(todo.id)}
@@ -178,7 +240,6 @@ export function DailyTodoList({ date }: { date?: string }) {
           </div>
         ))}
 
-        {/* 새 할 일 입력 */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -197,15 +258,12 @@ export function DailyTodoList({ date }: { date?: string }) {
           </Button>
         </form>
 
-        {/* 진행률 바 */}
         {todos.length > 0 && (
           <div className="pt-3">
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"
-                style={{
-                  width: `${Math.round((completedCount / todos.length) * 100)}%`,
-                }}
+                style={{ width: `${Math.round((completedCount / todos.length) * 100)}%` }}
               />
             </div>
           </div>
