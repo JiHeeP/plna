@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { toDateString } from "@/lib/utils";
 
+function defaultIntakeDate() {
+  const now = new Date();
+  // 새벽(0~4시) 입력은 전날 저녁 로그로 간주
+  if (now.getHours() < 5) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 1);
+    return toDateString(d);
+  }
+  return toDateString(now);
+}
+
 function resolveTargetTodoDate(dateStr: string, mode?: "same-day" | "next-day") {
   if (mode === "same-day") return dateStr;
   const d = new Date(`${dateStr}T00:00:00`);
@@ -175,8 +186,8 @@ export async function POST(request: NextRequest) {
   const shouldAutoOps = body.autoOps !== false && sourceText && looksLikeNightLog(sourceText);
 
   if (shouldAutoOps) {
-    const date = body.date || toDateString(new Date());
-    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "same-day");
+    const date = body.date || defaultIntakeDate();
+    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "next-day");
     const parsed = parseForOps(sourceText);
     const backlogCandidates = Array.from(
       new Set([
@@ -185,35 +196,9 @@ export async function POST(request: NextRequest) {
       ].map((x) => x.trim()).filter(Boolean)),
     );
 
-    const wentWell = parsed.completed.length
-      ? parsed.completed.map((x) => `- ${x}`).join("\n")
-      : "";
-
-    const toImproveParts = [
-      parsed.incomplete.length ? `[미완료]\n${parsed.incomplete.map((x) => `- ${x}`).join("\n")}` : "",
-      parsed.incompleteReason ? `[이유]\n${parsed.incompleteReason}` : "",
-      parsed.risks.length ? `[리스크]\n${parsed.risks.map((x) => `- ${x}`).join("\n")}` : "",
-      parsed.deadlines.length ? `[마감]\n${parsed.deadlines.map((x) => `- ${x}`).join("\n")}` : "",
-    ].filter(Boolean);
-
-    const accomplishments = parsed.tomorrowTop.length
-      ? `[내일 최우선]\n${parsed.tomorrowTop.map((x, i) => `${i + 1}) ${x}`).join("\n")}`
-      : "";
-
-    await supabase.from("daily_journals").upsert(
-      {
-        date,
-        accomplishments,
-        went_well: wentWell,
-        to_improve: toImproveParts.join("\n\n"),
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "date" },
-    );
-
     await saveBacklogItems(supabase, date, backlogCandidates);
 
-    if (parsed.tomorrowTop.length > 0 && body.autoApplyToToday === true) {
+    if (parsed.tomorrowTop.length > 0) {
       const { data: existingTodos } = await supabase
         .from("daily_todos")
         .select("text")
@@ -238,6 +223,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ...data,
     autoOpsApplied: shouldAutoOps,
-    autoApplyToToday: body.autoApplyToToday === true,
+    autoApplyToToday: true,
   });
 }

@@ -3,15 +3,16 @@
 ## Evening intake (22:00)
 
 - `POST /api/ops/evening-intake`
-- 기본 동작: 파싱 결과를 `ops_backlog_items`에 저장(Backlog 중심)
-- Today(todo) 자동 반영은 `autoApplyToToday: true`일 때만 수행
-- `todoDateMode`는 Today 반영 시 날짜 기준 제어 (`same-day` | `next-day`)
+- 기본 동작: 파싱 결과를 `ops_backlog_items`에 저장 + `daily_todos`에 자동 반영
+- 기본 todo 반영 날짜는 `next-day` (전날 저녁 로그 → 다음날 할일)
+- 새벽(00:00~04:59)에 date 없이 저장하면 전날 로그로 간주해 오늘 할일로 반영
+- `todoDateMode`로 강제 제어 가능 (`same-day` | `next-day`)
 
 ## Conversation save → auto intake (new)
 
 - `POST /api/conversations` with `source_text` (or `sourceText`) and `autoOps` (default true)
-- if text matches night-log pattern (`오늘 완료/미완료/보완질문`), it auto-writes journal + backlog.
-- Today(todo) 반영이 필요하면 `autoApplyToToday: true`를 함께 전달.
+- if text matches night-log pattern (`오늘 완료/미완료/보완질문`), it auto-writes backlog + daily_todos.
+- `daily_journals`는 자동 기록하지 않음.
 
 Example:
 

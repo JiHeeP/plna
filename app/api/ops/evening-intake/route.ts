@@ -16,6 +16,17 @@ interface EveningIntakeBody {
   autoApplyToToday?: boolean;
 }
 
+function defaultIntakeDate() {
+  const now = new Date();
+  // 새벽(0~4시) 입력은 전날 저녁 로그로 간주
+  if (now.getHours() < 5) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 1);
+    return toDateString(d);
+  }
+  return toDateString(now);
+}
+
 function resolveTargetTodoDate(dateStr: string, mode?: "same-day" | "next-day") {
   if (mode === "same-day") return dateStr;
   const d = new Date(`${dateStr}T00:00:00`);
@@ -159,8 +170,8 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as EveningIntakeBody;
     const supabase = await createClient();
 
-    const date = body.date || toDateString(new Date());
-    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "same-day");
+    const date = body.date || defaultIntakeDate();
+    const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "next-day");
 
     const autoChatText = body.autoFromLatestConversation
       ? await findAutoChatText(supabase, date)
@@ -172,8 +183,6 @@ export async function POST(req: NextRequest) {
     const incomplete = (body.incomplete ?? parsed?.incomplete ?? []).filter(Boolean);
     const tomorrowTop = (body.tomorrowTop ?? parsed?.tomorrowTop ?? []).filter(Boolean).slice(0, 3);
     const risks = (body.risks ?? parsed?.risks ?? []).filter(Boolean).slice(0, 3);
-    const deadlines = (body.deadlines ?? parsed?.deadlines ?? []).filter(Boolean).slice(0, 5);
-    const incompleteReason = body.incompleteReason ?? parsed?.incompleteReason ?? "";
 
     const backlogCandidates = Array.from(
       new Set([
@@ -182,41 +191,9 @@ export async function POST(req: NextRequest) {
       ].map((x) => x.trim()).filter(Boolean)),
     );
 
-    const wentWell = completed.length
-      ? completed.map((x) => `- ${x}`).join("\n")
-      : "";
-
-    const toImproveParts = [
-      incomplete.length ? `[미완료]\n${incomplete.map((x) => `- ${x}`).join("\n")}` : "",
-      incompleteReason ? `[이유]\n${incompleteReason}` : "",
-      risks.length ? `[리스크]\n${risks.map((x) => `- ${x}`).join("\n")}` : "",
-      deadlines.length ? `[마감]\n${deadlines.map((x) => `- ${x}`).join("\n")}` : "",
-    ].filter(Boolean);
-
-    const accomplishments = tomorrowTop.length
-      ? `[내일 최우선]\n${tomorrowTop.map((x, i) => `${i + 1}) ${x}`).join("\n")}`
-      : "";
-
-    const { error: journalError } = await supabase
-      .from("daily_journals")
-      .upsert(
-        {
-          date,
-          accomplishments,
-          went_well: wentWell,
-          to_improve: toImproveParts.join("\n\n"),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "date" },
-      );
-
-    if (journalError) {
-      return NextResponse.json({ ok: false, error: journalError.message }, { status: 500 });
-    }
-
     const backlogResult = await saveBacklogItems(supabase, date, backlogCandidates);
 
-    if (tomorrowTop.length > 0 && body.autoApplyToToday === true) {
+    if (tomorrowTop.length > 0) {
       const { data: existingTodos } = await supabase
         .from("daily_todos")
         .select("text")
@@ -239,11 +216,10 @@ export async function POST(req: NextRequest) {
           .insert(rows);
 
         if (todoError) {
-          // journal is saved anyway; return partial success
           return NextResponse.json({
             ok: true,
             partial: true,
-            message: "저널 저장 완료, todo 일부 저장 실패",
+            message: "todo 일부 저장 실패",
             todoError: todoError.message,
             date,
             targetTodoDate,
@@ -266,7 +242,7 @@ export async function POST(req: NextRequest) {
         risks: risks.length,
       },
       backlogError: backlogResult.error,
-      autoApplyToToday: body.autoApplyToToday === true,
+      autoApplyToToday: true,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
