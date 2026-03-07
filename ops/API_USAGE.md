@@ -18,6 +18,26 @@ Body example:
 }
 ```
 
+## Chat-to-intake mode (new)
+
+`POST /api/ops/evening-intake` also accepts raw conversation text.
+
+```json
+{
+  "date": "2026-03-07",
+  "chatText": "[22:00 로그]\n오늘 완료:\n- 기록 사이트 개선\n- 어휘 게임 개선안\n..."
+}
+```
+
+It extracts:
+
+- 오늘 완료 → `completed`
+- 미완료(+보완 Q3) → `incomplete`
+- 미완료 이유(+보완 Q2) → `incompleteReason`
+- 보완 Q1/Q4/Q5 → `tomorrowTop`
+- 보완 Q2 → `risks`
+- Q1 시간표현(예: 18:00, 6시) → `deadlines`
+
 ## Morning briefing (05:00)
 
 - `GET /api/ops/morning-briefing?date=2026-03-08`

@@ -10,12 +10,96 @@ interface EveningIntakeBody {
   tomorrowTop?: string[];
   risks?: string[];
   deadlines?: string[];
+  chatText?: string;
 }
 
 function nextDate(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + 1);
   return toDateString(d);
+}
+
+function splitBulletList(block?: string | null) {
+  if (!block) return [];
+  return block
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => line.replace(/^[-•]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function extractSection(text: string, startLabel: string, endLabels: string[]) {
+  const escapedStart = startLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedEnds = endLabels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const endPattern = escapedEnds.length > 0 ? `(?=${escapedEnds.join("|")}|$)` : "$";
+  const regex = new RegExp(`${escapedStart}\\s*\\n?([\\s\\S]*?)${endPattern}`, "i");
+  const match = text.match(regex);
+  return match?.[1]?.trim() || "";
+}
+
+function extractAnswer(text: string, n: number) {
+  const regex = new RegExp(`${n}\\s*[).]\\s*([\\s\\S]*?)(?=\\n\\s*${n + 1}\\s*[).]|$)`, "i");
+  return text.match(regex)?.[1]?.trim() || "";
+}
+
+function parseRisks(answer2: string) {
+  if (!answer2) return [];
+  const bullets = splitBulletList(answer2);
+  if (bullets.length > 0) return bullets;
+  return answer2
+    .split("\n")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function parseDeadlines(answer1: string) {
+  if (!answer1) return [];
+  const deadlineMatches = answer1.match(/\d{1,2}시(?:\s*\d{1,2}분)?|\d{1,2}:\d{2}/g) ?? [];
+  if (deadlineMatches.length === 0) return [];
+  return deadlineMatches.map((d) => `내일 ${d}`);
+}
+
+function parseTomorrowTop(answer1: string, answer4: string, answer5: string) {
+  const items: string[] = [];
+  if (answer1) items.push(answer1.replace(/\/$/, "").trim());
+  if (answer4) items.push(answer4.replace(/^\(?\d+\)?\s*/, "").trim());
+  if (answer5) items.push(`첫 30분: ${answer5.trim()}`);
+  return items.filter(Boolean).slice(0, 3);
+}
+
+function parseChatText(text: string) {
+  const completedRaw = extractSection(text, "오늘 완료:", ["미완료:", "미완료 이유:", "22:05 보완 질문 시작"]);
+  const incompleteRaw = extractSection(text, "미완료:", ["미완료 이유:", "22:05 보완 질문 시작"]);
+  const reasonRaw = extractSection(text, "미완료 이유:", ["22:05 보완 질문 시작"]);
+
+  const answer1 = extractAnswer(text, 1);
+  const answer2 = extractAnswer(text, 2);
+  const answer3 = extractAnswer(text, 3);
+  const answer4 = extractAnswer(text, 4);
+  const answer5 = extractAnswer(text, 5);
+
+  const completed = splitBulletList(completedRaw);
+  const incomplete = splitBulletList(incompleteRaw);
+  if (answer3) {
+    const mustCarry = answer3.replace(/^[-•]\s*/, "").trim();
+    if (mustCarry && !incomplete.includes(mustCarry)) incomplete.unshift(mustCarry);
+  }
+
+  const incompleteReason = [reasonRaw, answer2 ? `[보완 Q2]\n${answer2}` : ""].filter(Boolean).join("\n\n");
+  const tomorrowTop = parseTomorrowTop(answer1, answer4, answer5);
+  const risks = parseRisks(answer2);
+  const deadlines = parseDeadlines(answer1);
+
+  return {
+    completed,
+    incomplete,
+    incompleteReason,
+    tomorrowTop,
+    risks,
+    deadlines,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -26,11 +110,14 @@ export async function POST(req: NextRequest) {
     const date = body.date || toDateString(new Date());
     const targetTodoDate = nextDate(date);
 
-    const completed = (body.completed ?? []).filter(Boolean);
-    const incomplete = (body.incomplete ?? []).filter(Boolean);
-    const tomorrowTop = (body.tomorrowTop ?? []).filter(Boolean).slice(0, 3);
-    const risks = (body.risks ?? []).filter(Boolean).slice(0, 3);
-    const deadlines = (body.deadlines ?? []).filter(Boolean).slice(0, 5);
+    const parsed = body.chatText ? parseChatText(body.chatText) : null;
+
+    const completed = (body.completed ?? parsed?.completed ?? []).filter(Boolean);
+    const incomplete = (body.incomplete ?? parsed?.incomplete ?? []).filter(Boolean);
+    const tomorrowTop = (body.tomorrowTop ?? parsed?.tomorrowTop ?? []).filter(Boolean).slice(0, 3);
+    const risks = (body.risks ?? parsed?.risks ?? []).filter(Boolean).slice(0, 3);
+    const deadlines = (body.deadlines ?? parsed?.deadlines ?? []).filter(Boolean).slice(0, 5);
+    const incompleteReason = body.incompleteReason ?? parsed?.incompleteReason ?? "";
 
     const wentWell = completed.length
       ? completed.map((x) => `- ${x}`).join("\n")
@@ -38,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     const toImproveParts = [
       incomplete.length ? `[미완료]\n${incomplete.map((x) => `- ${x}`).join("\n")}` : "",
-      body.incompleteReason ? `[이유]\n${body.incompleteReason}` : "",
+      incompleteReason ? `[이유]\n${incompleteReason}` : "",
       risks.length ? `[리스크]\n${risks.map((x) => `- ${x}`).join("\n")}` : "",
       deadlines.length ? `[마감]\n${deadlines.map((x) => `- ${x}`).join("\n")}` : "",
     ].filter(Boolean);
@@ -93,6 +180,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       date,
       targetTodoDate,
+      parsedFromChat: Boolean(body.chatText),
       saved: {
         completed: completed.length,
         incomplete: incomplete.length,
