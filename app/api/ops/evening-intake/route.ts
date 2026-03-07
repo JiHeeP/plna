@@ -11,6 +11,7 @@ interface EveningIntakeBody {
   risks?: string[];
   deadlines?: string[];
   chatText?: string;
+  autoFromLatestConversation?: boolean;
 }
 
 function nextDate(dateStr: string) {
@@ -69,6 +70,21 @@ function parseTomorrowTop(answer1: string, answer4: string, answer5: string) {
   return items.filter(Boolean).slice(0, 3);
 }
 
+async function findAutoChatText(supabase: Awaited<ReturnType<typeof createClient>>, date: string) {
+  const { data } = await supabase
+    .from("conversations")
+    .select("date, source_text, summary, to_improve, created_at")
+    .eq("date", date)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return "";
+
+  const parts = [data.source_text, data.summary, data.to_improve].filter(Boolean);
+  return parts.join("\n\n").trim();
+}
+
 function parseChatText(text: string) {
   const completedRaw = extractSection(text, "오늘 완료:", ["미완료:", "미완료 이유:", "22:05 보완 질문 시작"]);
   const incompleteRaw = extractSection(text, "미완료:", ["미완료 이유:", "22:05 보완 질문 시작"]);
@@ -110,7 +126,11 @@ export async function POST(req: NextRequest) {
     const date = body.date || toDateString(new Date());
     const targetTodoDate = nextDate(date);
 
-    const parsed = body.chatText ? parseChatText(body.chatText) : null;
+    const autoChatText = body.autoFromLatestConversation
+      ? await findAutoChatText(supabase, date)
+      : "";
+    const effectiveChatText = (body.chatText || autoChatText || "").trim();
+    const parsed = effectiveChatText ? parseChatText(effectiveChatText) : null;
 
     const completed = (body.completed ?? parsed?.completed ?? []).filter(Boolean);
     const incomplete = (body.incomplete ?? parsed?.incomplete ?? []).filter(Boolean);
@@ -152,27 +172,38 @@ export async function POST(req: NextRequest) {
     }
 
     if (tomorrowTop.length > 0) {
-      const rows = tomorrowTop.map((text, idx) => ({
-        date: targetTodoDate,
-        text,
-        sort_order: idx,
-        completed: false,
-      }));
-
-      const { error: todoError } = await supabase
+      const { data: existingTodos } = await supabase
         .from("daily_todos")
-        .insert(rows);
+        .select("text")
+        .eq("date", targetTodoDate);
 
-      if (todoError) {
-        // journal is saved anyway; return partial success
-        return NextResponse.json({
-          ok: true,
-          partial: true,
-          message: "저널 저장 완료, todo 일부 저장 실패",
-          todoError: todoError.message,
-          date,
-          targetTodoDate,
-        });
+      const existingSet = new Set((existingTodos ?? []).map((x) => x.text.trim()));
+
+      const rows = tomorrowTop
+        .filter((text) => !existingSet.has(text.trim()))
+        .map((text, idx) => ({
+          date: targetTodoDate,
+          text,
+          sort_order: idx,
+          completed: false,
+        }));
+
+      if (rows.length > 0) {
+        const { error: todoError } = await supabase
+          .from("daily_todos")
+          .insert(rows);
+
+        if (todoError) {
+          // journal is saved anyway; return partial success
+          return NextResponse.json({
+            ok: true,
+            partial: true,
+            message: "저널 저장 완료, todo 일부 저장 실패",
+            todoError: todoError.message,
+            date,
+            targetTodoDate,
+          });
+        }
       }
     }
 
@@ -180,7 +211,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       date,
       targetTodoDate,
-      parsedFromChat: Boolean(body.chatText),
+      parsedFromChat: Boolean(effectiveChatText),
+      autoSourceUsed: Boolean(body.autoFromLatestConversation && autoChatText),
       saved: {
         completed: completed.length,
         incomplete: incomplete.length,

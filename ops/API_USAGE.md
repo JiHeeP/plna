@@ -21,11 +21,21 @@ Body example:
 ## Chat-to-intake mode (new)
 
 `POST /api/ops/evening-intake` also accepts raw conversation text.
+If `autoFromLatestConversation: true`, it tries to pull the latest same-day row from `conversations` (`source_text` 우선, 없으면 `summary/to_improve`) and parse automatically.
 
 ```json
 {
   "date": "2026-03-07",
   "chatText": "[22:00 로그]\n오늘 완료:\n- 기록 사이트 개선\n- 어휘 게임 개선안\n..."
+}
+```
+
+또는 완전 자동 모드:
+
+```json
+{
+  "date": "2026-03-07",
+  "autoFromLatestConversation": true
 }
 ```
 
