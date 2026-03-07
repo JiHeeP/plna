@@ -1,26 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { QuarterlyGoal } from "@/lib/types";
-import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
+import { QuarterlyGoal, Pillar } from "@/lib/types";
 import {
   CheckCircle2,
   Circle,
-  Plus,
   Trash2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-
-const PILLAR_OPTIONS: { value: QuarterlyGoal["pillar"]; label: string }[] = [
-  { value: "career", label: "일" },
-  { value: "identity", label: "나다운나" },
-  { value: "assets", label: "자산" },
-];
+import { PillarBoard } from "./pillar-board";
 
 function getCurrentQuarter() {
   const now = new Date();
@@ -53,9 +45,6 @@ export function QuarterlyGoalCard() {
   const [quarter, setQuarter] = useState(getCurrentQuarter);
   const [goals, setGoals] = useState<QuarterlyGoal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newText, setNewText] = useState("");
-  const [newPillar, setNewPillar] = useState<QuarterlyGoal["pillar"]>("career");
-  const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,167 +67,180 @@ export function QuarterlyGoalCard() {
   }, [load]);
 
   const toggleCompleted = async (goal: QuarterlyGoal) => {
-    await fetch("/api/quarterly-goals", {
+    const res = await fetch("/api/quarterly-goals", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: goal.id, completed: !goal.completed }),
     });
+    if (!res.ok) {
+      console.error("분기목표 수정 실패:", res.status);
+      return;
+    }
     load();
   };
 
-  const addGoal = async () => {
-    if (!newText.trim()) return;
-    await fetch("/api/quarterly-goals", {
+  const addGoal = async (pillar: Pillar, text: string) => {
+    if (!text.trim()) return;
+    const res = await fetch("/api/quarterly-goals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newText, pillar: newPillar, quarter }),
+      body: JSON.stringify({ text, pillar, quarter }),
     });
-    setNewText("");
-    setShowForm(false);
+    if (!res.ok) {
+      console.error("분기목표 저장 실패:", res.status);
+      return;
+    }
     load();
   };
 
   const deleteGoal = async (id: string) => {
-    await fetch("/api/quarterly-goals", {
+    const res = await fetch("/api/quarterly-goals", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    if (!res.ok) {
+      console.error("분기목표 삭제 실패:", res.status);
+      return;
+    }
+    load();
+  };
+
+  const handleReorder = async (items: { id: string; pillar: string; sort_order: number }[]) => {
+    const res = await fetch("/api/quarterly-goals/reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!res.ok) {
+      console.error("재정렬 실패:", res.status);
+    }
     load();
   };
 
   const completedCount = goals.filter((g) => g.completed).length;
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+  if (loading) {
+    return (
+      <div className="space-y-3">
         <h2 className="text-lg font-bold">분기 목표</h2>
-        {goals.length > 0 && (
-          <Badge variant="secondary" className="text-xs">
-            {completedCount}/{goals.length}
-          </Badge>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setQuarter((q) => shiftQuarter(q, -1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <CardTitle className="text-sm font-semibold">
-                {formatQuarterLabel(quarter)}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setQuarter((q) => shiftQuarter(q, 1))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-muted/30 rounded-xl p-3 space-y-3">
+              <div className="h-6 bg-muted animate-pulse rounded w-20" />
+              <div className="h-12 bg-muted animate-pulse rounded" />
+              <div className="h-12 bg-muted animate-pulse rounded" />
             </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PillarBoard<QuarterlyGoal>
+      title="분기 목표"
+      items={goals}
+      onReorder={handleReorder}
+      headerRight={
+        <div className="flex items-center gap-2">
+          {goals.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {completedCount}/{goals.length}
+            </Badge>
+          )}
+          <div className="flex items-center gap-1">
             <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setShowForm(!showForm)}
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setQuarter((q) => shiftQuarter(q, -1))}
             >
-              <Plus className="h-3 w-3 mr-1" />
-              추가
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-semibold min-w-[5.5rem] text-center">
+              {formatQuarterLabel(quarter)}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setQuarter((q) => shiftQuarter(q, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        </CardHeader>
+        </div>
+      }
+      renderCard={(goal) => (
+        <div className="bg-white rounded-lg shadow-sm border p-3 pl-7 group">
+          <div className="flex items-center gap-2">
+            <button onClick={() => toggleCompleted(goal)} className="flex-shrink-0">
+              {goal.completed ? (
+                <CheckCircle2 className="h-4.5 w-4.5 text-green-600" />
+              ) : (
+                <Circle className="h-4.5 w-4.5 text-gray-400" />
+              )}
+            </button>
+            <span
+              className={`text-sm flex-1 min-w-0 ${
+                goal.completed ? "line-through text-muted-foreground" : ""
+              }`}
+            >
+              {goal.text}
+            </span>
+            <button
+              onClick={() => deleteGoal(goal.id)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
+            </button>
+          </div>
+        </div>
+      )}
+      renderAddForm={(pillar, onClose) => (
+        <AddQuarterlyGoalForm
+          onSave={(text) => {
+            addGoal(pillar, text);
+            onClose();
+          }}
+          onCancel={onClose}
+        />
+      )}
+    />
+  );
+}
 
-        <CardContent className="pt-0 space-y-2">
-          {showForm && (
-            <div className="flex flex-col gap-2 p-3 bg-muted/50 rounded-lg">
-              <Input
-                placeholder="분기 목표를 입력하세요"
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addGoal()}
-                className="h-8 text-sm"
-              />
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  {PILLAR_OPTIONS.map((p) => (
-                    <button
-                      key={p.value}
-                      onClick={() => setNewPillar(p.value)}
-                      className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                        newPillar === p.value
-                          ? `${PILLAR_COLORS[p.value]} text-white`
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex-1" />
-                <Button size="sm" className="h-7 text-xs" onClick={addGoal}>
-                  저장
-                </Button>
-              </div>
-            </div>
-          )}
+function AddQuarterlyGoalForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (text: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState("");
 
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 bg-muted animate-pulse rounded" />
-              ))}
-            </div>
-          ) : goals.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              이번 분기 목표를 설정해보세요
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {goals.map((goal) => (
-                <div
-                  key={goal.id}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
-                >
-                  <button onClick={() => toggleCompleted(goal)}>
-                    {goal.completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <span
-                      className={`text-sm ${goal.completed ? "line-through text-muted-foreground" : ""}`}
-                    >
-                      {goal.text}
-                    </span>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] flex-shrink-0"
-                  >
-                    {PILLAR_LABELS[goal.pillar]}
-                  </Badge>
-                  <button
-                    onClick={() => deleteGoal(goal.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+  return (
+    <div className="bg-white rounded-lg shadow-sm border p-2 space-y-2">
+      <Input
+        autoFocus
+        placeholder="분기 목표를 입력하세요"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && text.trim()) onSave(text);
+          if (e.key === "Escape") onCancel();
+        }}
+        className="h-8 text-sm"
+      />
+      <div className="flex justify-end gap-1">
+        <Button size="sm" className="h-7 text-xs" onClick={() => text.trim() && onSave(text)}>
+          저장
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
+          취소
+        </Button>
+      </div>
     </div>
   );
 }

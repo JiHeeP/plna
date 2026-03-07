@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SubGoal } from "@/lib/types";
-import { PILLAR_LABELS, PILLAR_COLORS, PILLAR_TEXT_COLORS } from "@/lib/constants";
+import { SubGoal, Pillar } from "@/lib/types";
+import { PILLAR_TEXT_COLORS } from "@/lib/constants";
 import {
   ChevronDown,
   ChevronUp,
-  Plus,
   Pencil,
   Check,
   X,
@@ -20,19 +19,12 @@ import {
   Clock,
   Repeat,
 } from "lucide-react";
+import { PillarBoard } from "./pillar-board";
 
 interface SubGoalOverviewProps {
   subGoals: SubGoal[];
   onUpdate: () => void;
 }
-
-const PILLAR_ORDER: SubGoal["pillar"][] = ["career", "identity", "assets"];
-
-const PILLAR_BG: Record<string, string> = {
-  career: "bg-blue-50 border-blue-200",
-  identity: "bg-emerald-50 border-emerald-200",
-  assets: "bg-amber-50 border-amber-200",
-};
 
 const PROGRESS_BG: Record<string, string> = {
   career: "bg-blue-600",
@@ -49,11 +41,15 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const patchField = async (fields: Record<string, unknown>) => {
-    await fetch("/api/sub-goals", {
+    const res = await fetch("/api/sub-goals", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: sg.id, ...fields }),
     });
+    if (!res.ok) {
+      console.error("하위목표 수정 실패:", res.status);
+      return;
+    }
     onUpdate();
   };
 
@@ -81,8 +77,8 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
   const hasTargets = sg.annual_target || sg.quarterly_target || sg.monthly_target;
 
   return (
-    <Card className={`${PILLAR_BG[sg.pillar]} overflow-hidden`}>
-      <CardContent className="p-3 space-y-2">
+    <Card className="bg-white shadow-sm border overflow-hidden">
+      <CardContent className="p-3 pl-7 space-y-2">
         {/* Header: name + achievement rate */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
@@ -105,7 +101,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex-shrink-0 p-1 hover:bg-white/50 rounded"
+            className="flex-shrink-0 p-1 hover:bg-muted/50 rounded"
           >
             {expanded ? (
               <ChevronUp className="h-4 w-4" />
@@ -117,7 +113,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
 
         {/* Progress bar + rate */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 bg-white/60 rounded-full h-2.5">
+          <div className="flex-1 bg-muted/50 rounded-full h-2.5">
             <div
               className={`h-2.5 rounded-full transition-all ${PROGRESS_BG[sg.pillar]}`}
               style={{ width: `${Math.min(sg.achievement_rate, 100)}%` }}
@@ -161,7 +157,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
 
         {/* Expanded section */}
         {expanded && (
-          <div className="space-y-3 pt-1 border-t border-white/40">
+          <div className="space-y-3 pt-1 border-t">
             {/* Targets: annual / quarterly / monthly */}
             {hasTargets && (
               <div className="space-y-1">
@@ -169,21 +165,21 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
                   <Target className="h-3 w-3" />
                   목표
                 </div>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
+                <div className="grid grid-cols-1 gap-1.5 text-xs">
                   {sg.annual_target && (
-                    <div className="bg-white/50 rounded px-2 py-1">
+                    <div className="bg-muted/30 rounded px-2 py-1">
                       <div className="text-muted-foreground">연간</div>
                       <div className="font-medium">{sg.annual_target}</div>
                     </div>
                   )}
                   {sg.quarterly_target && (
-                    <div className="bg-white/50 rounded px-2 py-1">
+                    <div className="bg-muted/30 rounded px-2 py-1">
                       <div className="text-muted-foreground">분기</div>
                       <div className="font-medium">{sg.quarterly_target}</div>
                     </div>
                   )}
                   {sg.monthly_target && (
-                    <div className="bg-white/50 rounded px-2 py-1">
+                    <div className="bg-muted/30 rounded px-2 py-1">
                       <div className="text-muted-foreground">월간</div>
                       <div className="font-medium">{sg.monthly_target}</div>
                     </div>
@@ -232,7 +228,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
                 {!editingRetro && (
                   <button
                     onClick={() => setEditingRetro(true)}
-                    className="p-0.5 hover:bg-white/50 rounded"
+                    className="p-0.5 hover:bg-muted/50 rounded"
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
                   </button>
@@ -244,7 +240,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
                     value={retro}
                     onChange={(e) => autoSaveRetro(e.target.value)}
                     placeholder="이 하위목표에 대한 회고를 작성하세요..."
-                    className="text-xs min-h-[60px] bg-white/50"
+                    className="text-xs min-h-[60px] bg-muted/30"
                   />
                   <div className="flex justify-end">
                     <Button
@@ -271,135 +267,84 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
 }
 
 export function SubGoalOverview({ subGoals, onUpdate }: SubGoalOverviewProps) {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newPillar, setNewPillar] = useState<SubGoal["pillar"]>("career");
-
-  const addSubGoal = async () => {
-    if (!newName.trim()) return;
-    await fetch("/api/sub-goals", {
+  const addSubGoal = async (pillar: Pillar, name: string) => {
+    if (!name.trim()) return;
+    const res = await fetch("/api/sub-goals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, pillar: newPillar }),
+      body: JSON.stringify({ name, pillar }),
     });
-    setNewName("");
-    setShowAddForm(false);
+    if (!res.ok) {
+      console.error("하위목표 저장 실패:", res.status);
+      return;
+    }
     onUpdate();
   };
 
-  const grouped = PILLAR_ORDER.reduce(
-    (acc, pillar) => {
-      acc[pillar] = subGoals.filter((sg) => sg.pillar === pillar);
-      return acc;
-    },
-    {} as Record<string, SubGoal[]>,
-  );
-
-  if (subGoals.length === 0 && !showAddForm) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">하위목표</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => setShowAddForm(true)}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            추가
-          </Button>
-        </div>
-        <Card>
-          <CardContent className="py-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              하위목표를 추가하여 축별 세부 목표를 관리하세요
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleReorder = async (items: { id: string; pillar: string; sort_order: number }[]) => {
+    const res = await fetch("/api/sub-goals/reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!res.ok) {
+      console.error("재정렬 실패:", res.status);
+    }
+    onUpdate();
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">하위목표</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          추가
+    <PillarBoard<SubGoal>
+      title="하위목표"
+      items={subGoals}
+      onReorder={handleReorder}
+      renderCard={(sg) => <SubGoalCard sg={sg} onUpdate={onUpdate} />}
+      renderAddForm={(pillar, onClose) => (
+        <AddSubGoalForm
+          pillar={pillar}
+          onSave={(name) => {
+            addSubGoal(pillar, name);
+            onClose();
+          }}
+          onCancel={onClose}
+        />
+      )}
+    />
+  );
+}
+
+function AddSubGoalForm({
+  pillar,
+  onSave,
+  onCancel,
+}: {
+  pillar: Pillar;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border p-2 space-y-2">
+      <Input
+        autoFocus
+        placeholder="하위목표 이름"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && name.trim()) onSave(name);
+          if (e.key === "Escape") onCancel();
+        }}
+        className="h-8 text-sm"
+      />
+      <div className="flex justify-end gap-1">
+        <Button size="sm" className="h-7 text-xs" onClick={() => name.trim() && onSave(name)}>
+          저장
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
+          취소
         </Button>
       </div>
-
-      {showAddForm && (
-        <Card>
-          <CardContent className="p-3 space-y-2">
-            <Input
-              placeholder="하위목표 이름 (예: 연구대회, 대화, 건강)"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addSubGoal()}
-              className="h-8 text-sm"
-            />
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                {PILLAR_ORDER.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setNewPillar(p)}
-                    className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                      newPillar === p
-                        ? `${PILLAR_COLORS[p]} text-white`
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {PILLAR_LABELS[p]}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1" />
-              <Button size="sm" className="h-7 text-xs" onClick={addSubGoal}>
-                저장
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() => setShowAddForm(false)}
-              >
-                취소
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {PILLAR_ORDER.map((pillar) => {
-        const items = grouped[pillar];
-        if (!items || items.length === 0) return null;
-        return (
-          <div key={pillar} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className={`${PILLAR_COLORS[pillar]} text-white text-xs`}>
-                {PILLAR_LABELS[pillar]}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                평균 달성률 {Math.round(items.reduce((s, g) => s + g.achievement_rate, 0) / items.length)}%
-              </span>
-            </div>
-            <div className="space-y-2">
-              {items.map((sg) => (
-                <SubGoalCard key={sg.id} sg={sg} onUpdate={onUpdate} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
