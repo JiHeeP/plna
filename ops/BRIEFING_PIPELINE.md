@@ -5,15 +5,16 @@
 - 아침 준비 시간을 5분 이내로 축소
 
 ## 스케줄
-- 22:00: Evening Log Intake (main 봇)
+- 22:00: plna 기준 Evening Log 기록
+- 22:05: Clarifying Questions(부족 정보 질의)
 - 05:00: Morning Ops Briefing
 - 07:00: Market Briefing (real-estate 스킬 기반, 부동산/코인 분리)
 - 15:00: Afternoon Check-in Briefing
 
 ## 데이터 우선순위
-1. 전날 22:00 고정 폼 로그
-2. plna 데이터 (todos/habits/goals/journal)
-3. 최근 대화 컨텍스트(로그 누락 시 보조)
+1. plna 데이터 (todos/habits/goals/journal)  ← 단일 원본
+2. 22:00~22:30 보완 질의 응답
+3. 최근 대화 컨텍스트(누락 시 보조)
 
 ## 출력 정책
 - 톤: 코치형
@@ -27,13 +28,13 @@
 - ⚪ Skip: 오늘 목표 비관련/근거 부족
 
 ## 실행 단계
-1) Evening Intake 수집
-2) 구조화 저장(plna)
-3) Morning Prioritization (Top 3)
-4) Risk Annotation
-5) Briefing Emit
+1) 22:00 plna 로그 확인/저장
+2) 누락 항목 자동 탐지
+3) 최대 5개 보완 질문 발송 (22:05)
+4) 답변 반영 후 Top3 + Risk 생성
+5) 05:00 브리핑 발행
 
 ## 실패 처리
-- 로그 누락: plna + 최근 대화로 대체 브리핑 생성, 누락 표시
-- 데이터 충돌: 사용자 로그 우선
+- 로그 누락: 질문 1회 발송 후, 미응답이면 plna 기존 데이터로 최소 브리핑 생성
+- 데이터 충돌: plna 최신 기록 우선, 모호 시 사용자 확인
 - 근거 부족: Skip로 분류 + 사유 표시
