@@ -69,6 +69,27 @@ It extracts:
 - 보완 Q2 → `risks`
 - Q1 시간표현(예: 18:00, 6시) → `deadlines`
 
+## Backlog → Today promote (new)
+
+- `POST /api/ops/backlog/promote`
+
+Body:
+
+```json
+{
+  "backlogId": "<ops_backlog_items.id>",
+  "targetDate": "2026-03-08"
+}
+```
+
+Example curl:
+
+```bash
+curl -X POST http://localhost:3030/api/ops/backlog/promote \
+  -H "Content-Type: application/json" \
+  -d '{"backlogId":"<uuid>","targetDate":"2026-03-08"}'
+```
+
 ## Morning briefing (05:00)
 
 - `GET /api/ops/morning-briefing?date=2026-03-08`
