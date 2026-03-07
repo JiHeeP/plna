@@ -54,7 +54,8 @@ function extractSection(text: string, startLabel: string, endLabels: string[]) {
 }
 
 function extractAnswer(text: string, n: number) {
-  const regex = new RegExp(`${n}\\s*[).]\\s*([\\s\\S]*?)(?=\\n\\s*${n + 1}\\s*[).]|$)`, "i");
+  // 다음 번호가 n+1이 아니어도(예: 1 다음에 4) 다음 번호 문항에서 끊는다.
+  const regex = new RegExp(`${n}\\s*[).]\\s*([\\s\\S]*?)(?=\\n\\s*\\d+\\s*[).]|$)`, "i");
   return text.match(regex)?.[1]?.trim() || "";
 }
 
