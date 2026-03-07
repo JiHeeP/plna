@@ -68,7 +68,10 @@ function parseTomorrowTop(answer1: string, answer4: string, answer5: string) {
   const items: string[] = [];
   if (answer1) items.push(answer1.replace(/\/$/, "").trim());
   if (answer4) items.push(answer4.replace(/^\(?\d+\)?\s*/, "").trim());
-  if (answer5) items.push(`첫 30분: ${answer5.trim()}`);
+  if (answer5) {
+    const a5 = answer5.trim().replace(/^첫\s*30분\s*[:：]\s*/i, "");
+    items.push(`첫 30분: ${a5}`);
+  }
   return items.filter(Boolean).slice(0, 3);
 }
 

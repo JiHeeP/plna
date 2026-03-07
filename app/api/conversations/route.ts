@@ -60,7 +60,7 @@ function parseForOps(sourceText: string) {
   const tomorrowTop = [
     answer1?.replace(/\/$/, "").trim(),
     answer4?.replace(/^\(?\d+\)?\s*/, "").trim(),
-    answer5 ? `첫 30분: ${answer5.trim()}` : "",
+    answer5 ? `첫 30분: ${answer5.trim().replace(/^첫\s*30분\s*[:：]\s*/i, "")}` : "",
   ]
     .filter(Boolean)
     .slice(0, 3);
