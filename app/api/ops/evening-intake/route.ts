@@ -13,6 +13,7 @@ interface EveningIntakeBody {
   chatText?: string;
   autoFromLatestConversation?: boolean;
   todoDateMode?: "same-day" | "next-day";
+  autoApplyToToday?: boolean;
 }
 
 function resolveTargetTodoDate(dateStr: string, mode?: "same-day" | "next-day") {
@@ -90,6 +91,36 @@ async function findAutoChatText(supabase: Awaited<ReturnType<typeof createClient
   return parts.join("\n\n").trim();
 }
 
+async function saveBacklogItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  date: string,
+  items: string[],
+) {
+  if (items.length === 0) return { saved: 0, error: null as string | null };
+
+  const { data: existing } = await supabase
+    .from("ops_backlog_items")
+    .select("text")
+    .eq("date", date);
+
+  const existingSet = new Set((existing ?? []).map((x) => x.text.trim()));
+
+  const rows = items
+    .filter((text) => !existingSet.has(text.trim()))
+    .map((text, idx) => ({
+      date,
+      text,
+      source: "night-log",
+      status: "pending",
+      sort_order: idx,
+    }));
+
+  if (rows.length === 0) return { saved: 0, error: null as string | null };
+
+  const { error } = await supabase.from("ops_backlog_items").insert(rows);
+  return { saved: rows.length, error: error?.message ?? null };
+}
+
 function parseChatText(text: string) {
   const completedRaw = extractSection(text, "오늘 완료:", ["미완료:", "미완료 이유:", "22:05 보완 질문 시작"]);
   const incompleteRaw = extractSection(text, "미완료:", ["미완료 이유:", "22:05 보완 질문 시작"]);
@@ -144,6 +175,13 @@ export async function POST(req: NextRequest) {
     const deadlines = (body.deadlines ?? parsed?.deadlines ?? []).filter(Boolean).slice(0, 5);
     const incompleteReason = body.incompleteReason ?? parsed?.incompleteReason ?? "";
 
+    const backlogCandidates = Array.from(
+      new Set([
+        ...tomorrowTop,
+        ...incomplete,
+      ].map((x) => x.trim()).filter(Boolean)),
+    );
+
     const wentWell = completed.length
       ? completed.map((x) => `- ${x}`).join("\n")
       : "";
@@ -176,7 +214,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: journalError.message }, { status: 500 });
     }
 
-    if (tomorrowTop.length > 0) {
+    const backlogResult = await saveBacklogItems(supabase, date, backlogCandidates);
+
+    if (tomorrowTop.length > 0 && body.autoApplyToToday === true) {
       const { data: existingTodos } = await supabase
         .from("daily_todos")
         .select("text")
@@ -222,8 +262,11 @@ export async function POST(req: NextRequest) {
         completed: completed.length,
         incomplete: incomplete.length,
         tomorrowTop: tomorrowTop.length,
+        backlog: backlogResult.saved,
         risks: risks.length,
       },
+      backlogError: backlogResult.error,
+      autoApplyToToday: body.autoApplyToToday === true,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";

@@ -33,6 +33,35 @@ function extractAnswer(text: string, n: number) {
   return text.match(regex)?.[1]?.trim() || "";
 }
 
+async function saveBacklogItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  date: string,
+  items: string[],
+) {
+  if (items.length === 0) return { saved: 0, error: null as string | null };
+
+  const { data: existing } = await supabase
+    .from("ops_backlog_items")
+    .select("text")
+    .eq("date", date);
+
+  const existingSet = new Set((existing ?? []).map((x) => x.text.trim()));
+  const rows = items
+    .filter((text) => !existingSet.has(text.trim()))
+    .map((text, idx) => ({
+      date,
+      text,
+      source: "night-log",
+      status: "pending",
+      sort_order: idx,
+    }));
+
+  if (rows.length === 0) return { saved: 0, error: null as string | null };
+
+  const { error } = await supabase.from("ops_backlog_items").insert(rows);
+  return { saved: rows.length, error: error?.message ?? null };
+}
+
 function parseForOps(sourceText: string) {
   const completedRaw = extractSection(sourceText, "오늘 완료:", ["미완료:", "미완료 이유:", "22:05 보완 질문 시작"]);
   const incompleteRaw = extractSection(sourceText, "미완료:", ["미완료 이유:", "22:05 보완 질문 시작"]);
@@ -149,6 +178,12 @@ export async function POST(request: NextRequest) {
     const date = body.date || toDateString(new Date());
     const targetTodoDate = resolveTargetTodoDate(date, body.todoDateMode ?? "same-day");
     const parsed = parseForOps(sourceText);
+    const backlogCandidates = Array.from(
+      new Set([
+        ...parsed.tomorrowTop,
+        ...parsed.incomplete,
+      ].map((x) => x.trim()).filter(Boolean)),
+    );
 
     const wentWell = parsed.completed.length
       ? parsed.completed.map((x) => `- ${x}`).join("\n")
@@ -176,7 +211,9 @@ export async function POST(request: NextRequest) {
       { onConflict: "date" },
     );
 
-    if (parsed.tomorrowTop.length > 0) {
+    await saveBacklogItems(supabase, date, backlogCandidates);
+
+    if (parsed.tomorrowTop.length > 0 && body.autoApplyToToday === true) {
       const { data: existingTodos } = await supabase
         .from("daily_todos")
         .select("text")
@@ -198,5 +235,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ...data, autoOpsApplied: shouldAutoOps });
+  return NextResponse.json({
+    ...data,
+    autoOpsApplied: shouldAutoOps,
+    autoApplyToToday: body.autoApplyToToday === true,
+  });
 }
