@@ -4,6 +4,23 @@
 
 - `POST /api/ops/evening-intake`
 
+## Conversation save → auto intake (new)
+
+- `POST /api/conversations` with `source_text` (or `sourceText`) and `autoOps` (default true)
+- if text matches night-log pattern (`오늘 완료/미완료/보완질문`), it auto-writes journal + next-day todos.
+
+Example:
+
+```json
+{
+  "date": "2026-03-07",
+  "partner": "self",
+  "summary": "night log",
+  "source_text": "[22:00 로그]\n오늘 완료:\n- ...\n미완료:\n- ...\n22:05 보완 질문 시작\n1) ...",
+  "autoOps": true
+}
+```
+
 Body example:
 
 ```json
