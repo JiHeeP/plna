@@ -86,10 +86,10 @@ export function StreakCounter() {
         <div className="flex items-center gap-2">
           <Flame className="h-5 w-5 text-orange-500" />
           <div>
-            <p className="text-lg font-bold">
+            <p className="text-lg lg:text-xl font-bold">
               {streak > 0 ? `${streak}일 연속` : "오늘부터 시작!"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs lg:text-sm text-muted-foreground">
               전체 습관 완료 스트릭
             </p>
           </div>

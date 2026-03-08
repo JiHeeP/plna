@@ -182,7 +182,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">오늘의 기록</CardTitle>
+          <CardTitle className="text-base lg:text-lg">오늘의 기록</CardTitle>
           {saving && (
             <span className="text-xs text-muted-foreground">저장 중...</span>
           )}
@@ -197,7 +197,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
       <CardContent className="pt-0 space-y-4">
         {FIELDS.map(({ key, label, icon: Icon, placeholder }) => (
           <div key={key} className="space-y-1.5">
-            <label className="flex items-center gap-2 text-sm font-medium">
+            <label className="flex items-center gap-2 text-sm lg:text-base font-medium">
               <Icon className="h-4 w-4 text-muted-foreground" />
               {label}
             </label>
@@ -205,7 +205,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
               value={form[key]}
               onChange={(e) => handleChange(key, e.target.value)}
               placeholder={placeholder}
-              className="min-h-[72px] text-sm resize-none"
+              className="min-h-[72px] text-sm lg:text-base resize-none"
             />
           </div>
         ))}

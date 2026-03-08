@@ -169,16 +169,16 @@ export function WeeklyDashboard() {
     <div className="space-y-4 lg:space-y-6">
       {/* 헤더 + 주차 네비게이션 */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">주간 대시보드</h2>
+        <h2 className="text-lg lg:text-xl font-bold">주간 대시보드</h2>
         <div className="flex items-center gap-1">
           {saving && (
-            <span className="text-xs text-muted-foreground mr-1">저장 중...</span>
+            <span className="text-xs lg:text-sm text-muted-foreground mr-1">저장 중...</span>
           )}
           {!saving && saveStatus === "saved" && (
-            <span className="text-xs text-green-600 mr-1">저장됨</span>
+            <span className="text-xs lg:text-sm text-green-600 mr-1">저장됨</span>
           )}
           {!saving && saveStatus === "error" && (
-            <span className="text-xs text-red-500 mr-1">저장 실패</span>
+            <span className="text-xs lg:text-sm text-red-500 mr-1">저장 실패</span>
           )}
         </div>
       </div>
@@ -192,7 +192,7 @@ export function WeeklyDashboard() {
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-semibold">{formatWeekLabel(week)}</span>
+        <span className="text-sm lg:text-base font-semibold">{formatWeekLabel(week)}</span>
         <Button
           variant="ghost"
           size="icon"
@@ -207,7 +207,7 @@ export function WeeklyDashboard() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-[640px] w-full text-xs lg:min-w-0 lg:text-sm">
+            <table className="min-w-[640px] w-full text-xs lg:min-w-0 lg:text-base">
               <thead>
                 <tr className="border-b">
                   <th className="sticky left-0 bg-background z-10 p-2 text-left font-medium w-20 min-w-20">
@@ -222,7 +222,7 @@ export function WeeklyDashboard() {
                         className="p-2 text-center font-medium min-w-[72px] lg:min-w-[92px]"
                       >
                         <div>{day}</div>
-                        <div className="text-[10px] text-muted-foreground font-normal">
+                        <div className="text-[10px] lg:text-xs text-muted-foreground font-normal">
                           {dateNum}일
                         </div>
                       </th>
@@ -243,7 +243,7 @@ export function WeeklyDashboard() {
                             {day.habitRate}%
                           </span>
                         ) : (
-                          <span className="text-muted-foreground text-[11px] leading-tight block text-left">
+                          <span className="text-muted-foreground text-[11px] lg:text-sm leading-tight block text-left">
                             {truncate(day[row.key], 40)}
                           </span>
                         )}
@@ -262,11 +262,11 @@ export function WeeklyDashboard() {
         {/* 왼쪽: 이번 주 초점 목표 */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">이번 주 초점 목표</CardTitle>
+            <CardTitle className="text-sm lg:text-base">이번 주 초점 목표</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-1">
             {weeklyGoals.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2">
+              <p className="text-xs lg:text-sm text-muted-foreground py-2">
                 목표 탭에서 이번 주 목표를 설정해보세요
               </p>
             ) : (
@@ -278,11 +278,11 @@ export function WeeklyDashboard() {
                     <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   )}
                   <span
-                    className={`text-xs flex-1 ${goal.completed ? "line-through text-muted-foreground" : ""}`}
+                    className={`text-xs lg:text-sm flex-1 ${goal.completed ? "line-through text-muted-foreground" : ""}`}
                   >
                     {goal.text}
                   </span>
-                  <Badge variant="outline" className="text-[9px] flex-shrink-0">
+                  <Badge variant="outline" className="text-[9px] lg:text-xs flex-shrink-0">
                     {PILLAR_LABELS[goal.pillar]}
                   </Badge>
                 </div>
@@ -294,29 +294,29 @@ export function WeeklyDashboard() {
         {/* 오른쪽: 주간 회고 (편집 가능) */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">주간 회고</CardTitle>
+            <CardTitle className="text-sm lg:text-base">주간 회고</CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs lg:text-sm font-medium text-muted-foreground">
                 이번주 잘한 점
               </label>
               <Textarea
                 value={reflectionForm.went_well}
                 onChange={(e) => handleReflectionChange("went_well", e.target.value)}
                 placeholder="이번 주 잘한 점을 적어보세요"
-                className="min-h-[60px] text-xs resize-none"
+                className="min-h-[60px] text-xs lg:text-sm resize-none"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs lg:text-sm font-medium text-muted-foreground">
                 다음주 보완할 점
               </label>
               <Textarea
                 value={reflectionForm.to_improve}
                 onChange={(e) => handleReflectionChange("to_improve", e.target.value)}
                 placeholder="다음 주 보완할 점을 적어보세요"
-                className="min-h-[60px] text-xs resize-none"
+                className="min-h-[60px] text-xs lg:text-sm resize-none"
               />
             </div>
             <Button

@@ -40,7 +40,7 @@ export function WeeklyGoalsDisplay({ week }: { week: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">이번 주 목표</CardTitle>
+          <CardTitle className="text-base lg:text-lg">이번 주 목표</CardTitle>
           <Badge variant="secondary" className="text-xs">
             {completedCount}/{goals.length}
           </Badge>
@@ -55,11 +55,11 @@ export function WeeklyGoalsDisplay({ week }: { week: string }) {
               <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
             )}
             <span
-              className={`text-sm flex-1 ${goal.completed ? "line-through text-muted-foreground" : ""}`}
+              className={`text-sm lg:text-base flex-1 ${goal.completed ? "line-through text-muted-foreground" : ""}`}
             >
               {goal.text}
             </span>
-            <Badge variant="outline" className="text-[10px] flex-shrink-0">
+            <Badge variant="outline" className="text-[10px] lg:text-xs flex-shrink-0">
               {PILLAR_LABELS[goal.pillar]}
             </Badge>
           </div>

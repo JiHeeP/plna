@@ -181,10 +181,10 @@ export function DailyTodoList({ date }: { date?: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">오늘의 할 일</CardTitle>
+          <CardTitle className="text-base lg:text-lg">오늘의 할 일</CardTitle>
           <div className="flex items-center gap-2">
             {todos.length > 0 && (
-              <span className="text-sm text-muted-foreground">{completedCount}/{todos.length} 완료</span>
+              <span className="text-sm lg:text-base text-muted-foreground">{completedCount}/{todos.length} 완료</span>
             )}
             <Button
               variant={editMode ? "default" : "ghost"}
@@ -221,10 +221,10 @@ export function DailyTodoList({ date }: { date?: string }) {
             {editMode ? (
               <>
                 <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+                <span className="text-[11px] lg:text-xs font-semibold text-muted-foreground w-6">#{idx + 1}</span>
               </>
             ) : (
-              <span className="text-[11px] font-semibold text-muted-foreground w-6">#{idx + 1}</span>
+              <span className="text-[11px] lg:text-xs font-semibold text-muted-foreground w-6">#{idx + 1}</span>
             )}
             <Checkbox checked={todo.completed} onCheckedChange={() => toggleTodo(todo.id)} />
 
@@ -238,16 +238,16 @@ export function DailyTodoList({ date }: { date?: string }) {
                     if (e.key === "Enter") saveEdit(todo.id);
                     if (e.key === "Escape") setEditingId(null);
                   }}
-                  className="h-8 text-sm"
+                  className="h-8 text-sm lg:text-base"
                   autoFocus
                 />
               ) : (
-                <button type="button" onClick={() => startEdit(todo)} className="flex-1 text-left text-sm">
+                <button type="button" onClick={() => startEdit(todo)} className="flex-1 text-left text-sm lg:text-base">
                   {todo.text}
                 </button>
               )
             ) : (
-              <span className={`flex-1 text-left text-sm ${todo.completed ? "line-through text-muted-foreground" : ""}`}>
+              <span className={`flex-1 text-left text-sm lg:text-base ${todo.completed ? "line-through text-muted-foreground" : ""}`}>
                 {todo.text}
               </span>
             )}
@@ -275,7 +275,7 @@ export function DailyTodoList({ date }: { date?: string }) {
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="할 일 추가..."
-            className="h-9 text-sm"
+            className="h-9 text-sm lg:text-base"
           />
           <Button type="submit" size="sm" variant="ghost" className="h-9 px-2">
             <Plus className="h-4 w-4" />
