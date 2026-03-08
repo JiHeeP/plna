@@ -14,12 +14,6 @@ function toDateString(d: Date) {
 
 const FIELDS = [
   {
-    key: "accomplishments" as const,
-    label: "오늘 한 일",
-    icon: BookOpen,
-    placeholder: "오늘 무엇을 했나요?",
-  },
-  {
     key: "went_well" as const,
     label: "잘한 일",
     icon: Star,
@@ -30,6 +24,12 @@ const FIELDS = [
     label: "보완하고 싶은 것",
     icon: TrendingUp,
     placeholder: "내일은 어떻게 더 잘할 수 있을까요?",
+  },
+  {
+    key: "accomplishments" as const,
+    label: "오늘 한 일",
+    icon: BookOpen,
+    placeholder: "오늘 무엇을 했나요?",
   },
 ] as const;
 
