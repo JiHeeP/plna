@@ -47,7 +47,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-4 px-4 pt-6">
+    <div className="space-y-4 lg:space-y-6 px-4 pt-6 lg:px-8 lg:pt-8">
       {/* 날짜 헤더 */}
       <div>
         <div className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export default function Dashboard() {
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
-          <h1 className="text-2xl font-bold flex-1 text-center">
+          <h1 className="text-2xl lg:text-3xl font-bold flex-1 text-center">
             {month}월 {day}일 ({dayOfWeek})
           </h1>
           <button
@@ -69,7 +69,7 @@ export default function Dashboard() {
             <ChevronRight className="h-6 w-6" />
           </button>
         </div>
-        <p className="text-sm text-muted-foreground mt-0.5 text-center">
+        <p className="text-sm lg:text-base text-muted-foreground mt-0.5 text-center">
           {year}년 · 2026 목표 D+{dDay}
         </p>
       </div>

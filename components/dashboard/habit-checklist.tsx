@@ -210,9 +210,9 @@ export function HabitChecklist({ date }: { date?: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">습관</CardTitle>
+          <CardTitle className="text-base lg:text-lg">습관</CardTitle>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm lg:text-base text-muted-foreground">
               {completedCount}/{totalCount} 완료
             </span>
             {!useLocal && (
@@ -250,11 +250,11 @@ export function HabitChecklist({ date }: { date?: string }) {
                 disabled={editMode}
               />
               <span
-                className={
+                className={`lg:text-base ${
                   isCompleted(habit.id)
                     ? "line-through text-muted-foreground"
                     : ""
-                }
+                }`}
               >
                 {habit.name}
               </span>

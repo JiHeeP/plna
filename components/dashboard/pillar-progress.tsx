@@ -82,7 +82,7 @@ export function PillarProgress() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">3대 축 진행률</CardTitle>
+        <CardTitle className="text-base lg:text-lg">3대 축 진행률</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {pillars.map((p) => {
@@ -95,7 +95,7 @@ export function PillarProgress() {
 
           return (
             <div key={p.pillar} className="space-y-1">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm lg:text-base">
                 <span className="font-medium">
                   {PILLAR_LABELS[p.pillar]}
                 </span>
