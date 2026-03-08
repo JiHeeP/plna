@@ -155,9 +155,9 @@ export function WeeklyDashboard() {
 
   const rows = [
     { label: "습관 달성률", key: "habitRate" as const },
-    { label: "오늘 한 일", key: "accomplishments" as const },
     { label: "잘한 일", key: "went_well" as const },
     { label: "보완할 점", key: "to_improve" as const },
+    { label: "오늘 한 일", key: "accomplishments" as const },
   ];
 
   return (
