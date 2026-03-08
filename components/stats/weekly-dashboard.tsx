@@ -45,11 +45,6 @@ function habitRateColor(rate: number) {
   return "text-red-500";
 }
 
-function truncate(text: string, max: number) {
-  if (!text) return "-";
-  return text.length > max ? text.slice(0, max) + "..." : text;
-}
-
 export function WeeklyDashboard() {
   const [week, setWeek] = useState(() => getISOWeekString(new Date()));
   const [data, setData] = useState<DashboardData | null>(null);
@@ -243,8 +238,8 @@ export function WeeklyDashboard() {
                             {day.habitRate}%
                           </span>
                         ) : (
-                          <span className="text-muted-foreground text-[11px] lg:text-sm leading-tight block text-left">
-                            {truncate(day[row.key], 40)}
+                          <span className="text-muted-foreground text-[11px] lg:text-sm leading-tight block text-left whitespace-pre-line">
+                            {day[row.key] || "-"}
                           </span>
                         )}
                       </td>
