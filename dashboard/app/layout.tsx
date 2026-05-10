@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PLNA - 주간 대시보드",
+  title: "계획 관리",
   description: "주간 습관, 목표, 회고를 한눈에 확인하세요.",
 };
 
