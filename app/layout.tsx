@@ -14,13 +14,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PLNA - 2026 목표 관리",
+  title: "계획 관리",
   description: "1-60-100 증명. 매일의 습관이 큰 목표를 이룹니다.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icons/icon.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "PLNA",
+    title: "계획 관리",
   },
 };
 
