@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, hasFirebaseServerConfig } from "@/lib/firebase/server";
 import {
   buildUnifiedFallback,
   type AiInsightText,
@@ -600,10 +600,7 @@ async function buildSnapshot(
 /* ── GET handler ── */
 
 export async function GET() {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
+  if (!hasFirebaseServerConfig()) {
     return NextResponse.json<UnifiedInsightResponse>({
       weekly: null,
       monthly: null,

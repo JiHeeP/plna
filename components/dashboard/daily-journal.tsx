@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
 import type { DailyJournal } from "@/lib/types";
 
@@ -34,7 +33,6 @@ const FIELDS = [
 ] as const;
 
 export function DailyJournalCard({ date }: { date?: string }) {
-  const [journal, setJournal] = useState<DailyJournal | null>(null);
   const [form, setForm] = useState({
     accomplishments: "",
     to_improve: "",
@@ -51,27 +49,22 @@ export function DailyJournalCard({ date }: { date?: string }) {
 
   const loadJournal = useCallback(async () => {
     setLoading(true);
-    const supabase = createClient();
     const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
 
     try {
-      const { data, error } = await supabase
-        .from("daily_journals")
-        .select("*")
-        .eq("date", targetDate)
-        .single();
+      const response = await fetch(`/api/journal?date=${encodeURIComponent(targetDate)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      if (error && error.code !== "PGRST116") throw error;
-
+      const data = (await response.json()) as DailyJournal | null;
       if (data) {
-        setJournal(data);
         setForm({
           accomplishments: data.accomplishments ?? "",
           to_improve: data.to_improve ?? "",
           went_well: data.went_well ?? "",
         });
       } else {
-        setJournal(null);
         setForm(emptyForm);
       }
       setUseLocal(false);
@@ -82,7 +75,6 @@ export function DailyJournalCard({ date }: { date?: string }) {
         const parsed = JSON.parse(saved);
         setForm(parsed);
       } else {
-        setJournal(null);
         setForm(emptyForm);
       }
     } finally {
@@ -125,23 +117,16 @@ export function DailyJournalCard({ date }: { date?: string }) {
       }
 
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("daily_journals")
-          .upsert(
-            {
-              date: targetDate,
-              ...updatedForm,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "date" }
-          )
-          .select()
-          .single();
+        const response = await fetch("/api/journal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: targetDate,
+            ...updatedForm,
+          }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        if (error) throw error;
-
-        if (data) setJournal(data);
         setSaveStatus("saved");
       } catch (err) {
         console.error("저널 저장 실패:", err);

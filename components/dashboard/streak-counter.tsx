@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import { Flame } from "lucide-react";
+import type { DailyHabit, HabitLog } from "@/lib/types";
 
 export function StreakCounter() {
   const [streak, setStreak] = useState(0);
@@ -12,16 +12,23 @@ export function StreakCounter() {
   useEffect(() => {
     async function loadStreak() {
       try {
-        const supabase = createClient();
         const today = new Date();
 
         const thirtyDaysAgo = new Date(today);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const { data: habits } = await supabase
-          .from("daily_habits")
-          .select("id")
-          .eq("is_active", true);
+        const start = thirtyDaysAgo.toISOString().split("T")[0];
+        const end = today.toISOString().split("T")[0];
+        const response = await fetch(
+          `/api/habits?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const { habits, logs } = (await response.json()) as {
+          habits: Pick<DailyHabit, "id">[];
+          logs: Pick<HabitLog, "date" | "completed">[];
+        };
 
         if (!habits || habits.length === 0) {
           setLoading(false);
@@ -29,12 +36,6 @@ export function StreakCounter() {
         }
 
         const totalHabits = habits.length;
-
-        const { data: logs } = await supabase
-          .from("habit_logs")
-          .select("date, completed")
-          .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
-          .eq("completed", true);
 
         if (!logs) {
           setLoading(false);

@@ -6,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import type { DailyTodo } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -36,18 +35,13 @@ export function DailyTodoList({ date }: { date?: string }) {
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const loadTodos = useCallback(async () => {
-    const supabase = createClient();
-
     try {
-      const { data, error } = await supabase
-        .from("daily_todos")
-        .select("*")
-        .eq("date", targetDate)
-        .order("sort_order")
-        .order("created_at");
+      const response = await fetch(`/api/todos?date=${encodeURIComponent(targetDate)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      if (error) throw error;
-
+      const data = (await response.json()) as DailyTodo[];
       setTodos(data || []);
       setUseLocal(false);
     } catch {
@@ -69,10 +63,13 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const persistOrder = async (ordered: DailyTodo[]) => {
     if (useLocal) return;
-    const supabase = createClient();
     await Promise.all(
       ordered.map((t, idx) =>
-        supabase.from("daily_todos").update({ sort_order: idx }).eq("id", t.id),
+        fetch("/api/todos", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: t.id, sort_order: idx }),
+        }),
       ),
     );
   };
@@ -97,14 +94,14 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("daily_todos")
-      .insert({ date: targetDate, text, sort_order: todos.length })
-      .select()
-      .single();
+    const response = await fetch("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: targetDate, text, sort_order: todos.length }),
+    });
 
-    if (error) return;
+    if (!response.ok) return;
+    const data = (await response.json()) as DailyTodo;
     setTodos((prev) => [...prev, data]);
     setNewText("");
   };
@@ -121,8 +118,11 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    const supabase = createClient();
-    await supabase.from("daily_todos").update({ completed: !todo.completed }).eq("id", id);
+    await fetch("/api/todos", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, completed: !todo.completed }),
+    });
   };
 
   const startEdit = (todo: DailyTodo) => {
@@ -143,8 +143,11 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    const supabase = createClient();
-    await supabase.from("daily_todos").update({ text }).eq("id", id);
+    await fetch("/api/todos", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, text }),
+    });
   };
 
   const deleteTodo = async (id: string) => {
@@ -156,8 +159,9 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    const supabase = createClient();
-    await supabase.from("daily_todos").delete().eq("id", id);
+    await fetch(`/api/todos?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
     await persistOrder(updated);
   };
 

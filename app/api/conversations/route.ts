@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 import { toDateString } from "@/lib/utils";
 
 function defaultIntakeDate() {
@@ -226,6 +226,7 @@ export async function POST(request: NextRequest) {
       summary: body.summary,
       went_well: body.went_well || "",
       to_improve: body.to_improve || "",
+      is_imported: Boolean(body.is_imported),
       source_text: sourceText || null,
     })
     .select()

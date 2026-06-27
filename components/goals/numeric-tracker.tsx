@@ -5,8 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericTarget, NumericLog } from "@/lib/types";
-import { Plus, TrendingUp } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Plus } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -31,16 +30,26 @@ export function NumericTracker({ targets, logs, onUpdate }: NumericTrackerProps)
   const addLog = async (targetId: string) => {
     if (!newValue.trim()) return;
     setSaving(true);
-    const supabase = createClient();
-    await supabase.from("numeric_logs").insert({
-      target_id: targetId,
-      date: new Date().toISOString().split("T")[0],
-      value: parseFloat(newValue),
-    });
-    setNewValue("");
-    setSelectedTarget(null);
-    setSaving(false);
-    onUpdate();
+    try {
+      const response = await fetch("/api/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "numeric_log",
+          target_id: targetId,
+          date: new Date().toISOString().split("T")[0],
+          value: parseFloat(newValue),
+        }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      setNewValue("");
+      setSelectedTarget(null);
+      onUpdate();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getLatestValue = (targetId: string) => {

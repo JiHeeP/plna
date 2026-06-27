@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import type { Pillar } from "@/lib/types";
+import type { Milestone, Pillar } from "@/lib/types";
 
 interface PillarData {
   pillar: Pillar;
@@ -21,11 +20,13 @@ export function PillarProgress() {
   useEffect(() => {
     async function load() {
       try {
-        const supabase = createClient();
-        const { data: milestones } = await supabase
-          .from("milestones")
-          .select("pillar, status")
-          .in("timeframe", ["6month", "1year"]);
+        const response = await fetch("/api/goals", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = (await response.json()) as { milestones: Milestone[] };
+        const milestones = data.milestones.filter((milestone) =>
+          ["6month", "1year"].includes(milestone.timeframe),
+        );
 
         if (!milestones) {
           setLoading(false);

@@ -5,9 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_HABITS } from "@/lib/constants";
-import type { DailyHabit, HabitLog } from "@/lib/types";
+import type { DailyHabit, HabitLog, HabitWithLog } from "@/lib/types";
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -33,27 +32,19 @@ export function HabitChecklist({ date }: { date?: string }) {
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const loadData = useCallback(async () => {
-    const supabase = createClient();
-
     try {
-      const { data: habitsData, error: habitsError } = await supabase
-        .from("daily_habits")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
+      const response = await fetch(`/api/habits?date=${encodeURIComponent(targetDate)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      if (habitsError) throw habitsError;
-
-      const { data: logsData, error: logsError } = await supabase
-        .from("habit_logs")
-        .select("*")
-        .eq("date", targetDate)
-        .eq("completed", true);
-
-      if (logsError) throw logsError;
-
-      setHabits(habitsData || []);
-      setLogs(logsData || []);
+      const habitsData = (await response.json()) as HabitWithLog[];
+      setHabits(habitsData);
+      setLogs(
+        habitsData
+          .map((habit) => habit.log)
+          .filter((log): log is HabitLog => Boolean(log?.completed)),
+      );
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -136,39 +127,32 @@ export function HabitChecklist({ date }: { date?: string }) {
       return;
     }
 
-    const supabase = createClient();
-    if (newCompleted) {
-      await supabase.from("habit_logs").upsert(
-        { habit_id: habit.id, date: targetDate, completed: true },
-        { onConflict: "habit_id,date" }
-      );
-    } else {
-      await supabase
-        .from("habit_logs")
-        .delete()
-        .eq("habit_id", habit.id)
-        .eq("date", targetDate);
-    }
+    await fetch("/api/habits", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        habit_id: habit.id,
+        date: targetDate,
+        completed: newCompleted,
+      }),
+    });
   };
 
   const addHabit = async () => {
     const trimmed = newHabitName.trim();
     if (!trimmed) return;
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("daily_habits")
-      .insert({
+    const response = await fetch("/api/habits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         name: trimmed,
-        name_en: trimmed.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "") || `habit_${Date.now()}`,
         category: newHabitCategory,
-        sort_order: habits.length + 1,
-        is_active: true,
-      })
-      .select()
-      .single();
+      }),
+    });
 
-    if (!error && data) {
+    if (response.ok) {
+      const data = (await response.json()) as DailyHabit;
       setHabits((prev) => [...prev, data]);
       setNewHabitName("");
       setShowAddForm(false);
@@ -176,13 +160,11 @@ export function HabitChecklist({ date }: { date?: string }) {
   };
 
   const removeHabit = async (habit: DailyHabit) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("daily_habits")
-      .update({ is_active: false })
-      .eq("id", habit.id);
+    const response = await fetch(`/api/habits?id=${encodeURIComponent(habit.id)}`, {
+      method: "DELETE",
+    });
 
-    if (!error) {
+    if (response.ok) {
       setHabits((prev) => prev.filter((h) => h.id !== habit.id));
       setLogs((prev) => prev.filter((l) => l.habit_id !== habit.id));
     }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_HABITS } from "@/lib/constants";
 import type { DailyHabit, HabitLog } from "@/lib/types";
 
@@ -45,28 +44,19 @@ export function WeeklyHabitGrid() {
   const weekEnd = toDateString(weekDates[6]);
 
   const loadData = useCallback(async () => {
-    const supabase = createClient();
-
     try {
-      const { data: habitsData, error: habitsError } = await supabase
-        .from("daily_habits")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
+      const response = await fetch(
+        `/api/habits?start=${encodeURIComponent(weekStart)}&end=${encodeURIComponent(weekEnd)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      if (habitsError) throw habitsError;
-
-      const { data: logsData, error: logsError } = await supabase
-        .from("habit_logs")
-        .select("*")
-        .gte("date", weekStart)
-        .lte("date", weekEnd)
-        .eq("completed", true);
-
-      if (logsError) throw logsError;
-
-      setHabits(habitsData || []);
-      setWeekLogs(logsData || []);
+      const data = (await response.json()) as {
+        habits: DailyHabit[];
+        logs: HabitLog[];
+      };
+      setHabits(data.habits || []);
+      setWeekLogs(data.logs || []);
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -153,19 +143,15 @@ export function WeeklyHabitGrid() {
       return;
     }
 
-    const supabase = createClient();
-    if (newCompleted) {
-      await supabase.from("habit_logs").upsert(
-        { habit_id: habit.id, date, completed: true },
-        { onConflict: "habit_id,date" }
-      );
-    } else {
-      await supabase
-        .from("habit_logs")
-        .delete()
-        .eq("habit_id", habit.id)
-        .eq("date", date);
-    }
+    await fetch("/api/habits", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        habit_id: habit.id,
+        date,
+        completed: newCompleted,
+      }),
+    });
   };
 
   const weekTotal = habits.length * 7;

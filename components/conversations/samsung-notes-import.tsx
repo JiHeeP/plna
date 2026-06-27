@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { createClient } from "@/lib/supabase/client";
 import { Upload, FileText, Check } from "lucide-react";
 
 interface ParsedEntry {
@@ -117,7 +116,6 @@ export function SamsungNotesImport() {
     if (selected.length === 0) return;
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       const rows = selected.map((e) => ({
@@ -131,8 +129,18 @@ export function SamsungNotesImport() {
         source_text: e.content,
       }));
 
-      const { error } = await supabase.from("conversations").insert(rows);
-      if (error) throw error;
+      const responses = await Promise.all(
+        rows.map((row) =>
+          fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...row, autoOps: false }),
+          }),
+        ),
+      );
+
+      const failed = responses.find((response) => !response.ok);
+      if (failed) throw new Error(`HTTP ${failed.status}`);
 
       setStep("done");
       setTimeout(() => {

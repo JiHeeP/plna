@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 
-// GET /api/todos?date=2026-02-26
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const date =
@@ -22,22 +21,23 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-// POST /api/todos - 새 할 일 추가
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
-  const { date, text } = body;
+  const text = String(body.text ?? "").trim();
+  const sortOrder = Number(body.sort_order);
 
-  if (!text?.trim()) {
-    return NextResponse.json(
-      { error: "할 일 내용이 필요합니다" },
-      { status: 400 }
-    );
+  if (!text) {
+    return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
 
   const { data, error } = await supabase
     .from("daily_todos")
-    .insert({ date: date || new Date().toISOString().split("T")[0], text: text.trim() })
+    .insert({
+      date: body.date || new Date().toISOString().split("T")[0],
+      text,
+      sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    })
     .select()
     .single();
 
@@ -48,19 +48,43 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-// PATCH /api/todos - 할 일 토글
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
-  const { id, completed } = body;
+  const { id } = body;
 
   if (!id) {
-    return NextResponse.json({ error: "id가 필요합니다" }, { status: 400 });
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const patch: Record<string, unknown> = {};
+
+  if ("completed" in body) {
+    patch.completed = Boolean(body.completed);
+  }
+
+  if ("text" in body) {
+    const text = String(body.text ?? "").trim();
+    if (!text) {
+      return NextResponse.json({ error: "text is required" }, { status: 400 });
+    }
+    patch.text = text;
+  }
+
+  if ("sort_order" in body) {
+    const sortOrder = Number(body.sort_order);
+    if (Number.isFinite(sortOrder)) {
+      patch.sort_order = sortOrder;
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "no update fields provided" }, { status: 400 });
   }
 
   const { error } = await supabase
     .from("daily_todos")
-    .update({ completed })
+    .update(patch)
     .eq("id", id);
 
   if (error) {
@@ -70,13 +94,12 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-// DELETE /api/todos - 할 일 삭제
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
   const id = request.nextUrl.searchParams.get("id");
 
   if (!id) {
-    return NextResponse.json({ error: "id가 필요합니다" }, { status: 400 });
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
   const { error } = await supabase

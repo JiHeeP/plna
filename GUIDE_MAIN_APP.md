@@ -8,7 +8,7 @@
 - **프레임워크:** Next.js 16 (App Router)
 - **언어:** TypeScript 5.9
 - **UI:** Tailwind CSS 4 + shadcn/ui + Radix UI
-- **DB:** Supabase (PostgreSQL)
+- **DB:** Firebase Firestore
 - **AI 인사이트:** Kimi 2.5 (Moonshot AI) — 규칙 기반 폴백 포함
 - **기타:** dnd-kit (드래그앤드롭), Recharts (차트), date-fns
 - **포트:** 3000 (기본)
@@ -49,7 +49,8 @@ plna/
 │   ├── types.ts            # 전체 타입 정의
 │   ├── insights.ts         # AI 인사이트 타입 & 규칙 기반 폴백
 │   ├── utils.ts            # 유틸리티 함수
-│   └── supabase/           # Supabase 클라이언트 (client/server)
+│   ├── firebase/           # Firebase Firestore 연동 (API Route는 Admin SDK 사용)
+│   └── supabase/           # Firebase compatibility exports
 └── scripts/
     └── check-secrets.mjs   # 시크릿 검증 스크립트
 ```
@@ -101,12 +102,17 @@ plna/
 ## 환경 변수
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# Firebase (Firestore)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+FIREBASE_SERVICE_ACCOUNT_JSON=
 
 # Kimi 2.5 (AI 인사이트)
-KIMI_API_KEY=
+KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
 
@@ -126,5 +132,6 @@ DIGEST_TIMEZONE=Asia/Seoul
 - PWA 지원: `manifest.json` 포함
 - 한국어 UI: `lang="ko"`
 - 날짜 형식: `YYYY-MM-DD` (일일), `YYYY-Www` (주간), `YYYY-MM` (월간), `YYYY-Qn` (분기)
-- Supabase를 직접 사용 (ORM 없음)
+- 브라우저 컴포넌트는 Firestore에 직접 접근하지 않고 `/api/*` Route를 호출
+- API Route는 Firebase Admin SDK로 Firestore에 접근
 - `"use client"` 컴포넌트 중심 (서버 컴포넌트는 레이아웃 정도)

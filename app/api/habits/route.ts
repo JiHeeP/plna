@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/firebase/server";
 
-// GET /api/habits?date=2026-02-16
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const date =
     request.nextUrl.searchParams.get("date") ||
     new Date().toISOString().split("T")[0];
+  const start = request.nextUrl.searchParams.get("start");
+  const end = request.nextUrl.searchParams.get("end");
 
   const { data: habits, error: habitsError } = await supabase
     .from("daily_habits")
@@ -18,10 +19,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: habitsError.message }, { status: 500 });
   }
 
+  if (start || end) {
+    let logsQuery = supabase
+      .from("habit_logs")
+      .select("*")
+      .eq("completed", true);
+
+    if (start) logsQuery = logsQuery.gte("date", start);
+    if (end) logsQuery = logsQuery.lte("date", end);
+
+    const { data: logs, error: logsError } = await logsQuery;
+
+    if (logsError) {
+      return NextResponse.json({ error: logsError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      habits: habits || [],
+      logs: logs || [],
+    });
+  }
+
   const { data: logs, error: logsError } = await supabase
     .from("habit_logs")
     .select("*")
-    .eq("date", date);
+    .eq("date", date)
+    .eq("completed", true);
 
   if (logsError) {
     return NextResponse.json({ error: logsError.message }, { status: 500 });
@@ -35,20 +58,19 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(merged);
 }
 
-// POST /api/habits - 새 습관 추가
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
-  const { name, category } = body;
+  const name = String(body.name ?? "").trim();
+  const category = String(body.category ?? "").trim();
 
   if (!name || !category) {
     return NextResponse.json(
-      { error: "name과 category가 필요합니다" },
-      { status: 400 }
+      { error: "name and category are required" },
+      { status: 400 },
     );
   }
 
-  // 현재 최대 sort_order 조회
   const { data: existing } = await supabase
     .from("daily_habits")
     .select("sort_order")
@@ -56,7 +78,7 @@ export async function POST(request: NextRequest) {
     .order("sort_order", { ascending: false })
     .limit(1);
 
-  const nextOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 1;
+  const nextOrder = existing && existing.length > 0 ? Number(existing[0].sort_order ?? 0) + 1 : 1;
   const nameEn = name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
 
   const { data, error } = await supabase
@@ -78,7 +100,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-// PATCH /api/habits - 습관 토글
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
@@ -86,8 +107,8 @@ export async function PATCH(request: NextRequest) {
 
   if (!habit_id || !date) {
     return NextResponse.json(
-      { error: "habit_id와 date가 필요합니다" },
-      { status: 400 }
+      { error: "habit_id and date are required" },
+      { status: 400 },
     );
   }
 
@@ -98,7 +119,7 @@ export async function PATCH(request: NextRequest) {
         date,
         completed: true,
       },
-      { onConflict: "habit_id,date" }
+      { onConflict: "habit_id,date" },
     );
 
     if (error) {
@@ -119,14 +140,12 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-// DELETE /api/habits - 습관 비활성화 (soft delete)
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
-  const { searchParams } = request.nextUrl;
-  const id = searchParams.get("id");
+  const id = request.nextUrl.searchParams.get("id");
 
   if (!id) {
-    return NextResponse.json({ error: "id가 필요합니다" }, { status: 400 });
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
   const { error } = await supabase
