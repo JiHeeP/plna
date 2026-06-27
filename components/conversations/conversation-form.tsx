@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/firebase/client";
 
 const CONTEXT_OPTIONS = ["학교", "스몰토크 수업", "낯선 모임", "온라인", "가족", "친구", "기타"];
 

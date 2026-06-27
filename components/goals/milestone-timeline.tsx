@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Milestone } from "@/lib/types";
 import { PILLAR_LABELS } from "@/lib/constants";
 import { CheckCircle2, Circle, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/firebase/client";
 
 const TIMEFRAME_LABELS: Record<string, string> = {
   "6month": "6개월",

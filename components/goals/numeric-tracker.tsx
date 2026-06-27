@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericTarget, NumericLog } from "@/lib/types";
 import { Plus, TrendingUp } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/firebase/client";
 import {
   ResponsiveContainer,
   AreaChart,

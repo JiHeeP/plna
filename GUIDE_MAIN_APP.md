@@ -8,7 +8,7 @@
 - **프레임워크:** Next.js 16 (App Router)
 - **언어:** TypeScript 5.9
 - **UI:** Tailwind CSS 4 + shadcn/ui + Radix UI
-- **DB:** Supabase (PostgreSQL)
+- **DB:** Firebase Firestore
 - **AI 인사이트:** Kimi 2.5 (Moonshot AI) — 규칙 기반 폴백 포함
 - **기타:** dnd-kit (드래그앤드롭), Recharts (차트), date-fns
 - **포트:** 3000 (기본)
@@ -101,12 +101,17 @@ plna/
 ## 환경 변수
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+# Firebase (Firestore)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+FIREBASE_SERVICE_ACCOUNT_JSON=
 
 # Kimi 2.5 (AI 인사이트)
-KIMI_API_KEY=
+KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
 

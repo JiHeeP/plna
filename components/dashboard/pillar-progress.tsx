@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/firebase/client";
 import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { Pillar } from "@/lib/types";

@@ -43,7 +43,7 @@ dashboard/
 | 레이아웃     | max-w-md (모바일 퍼스트) | max-w-4xl (데스크톱 중심)  |
 | 네비게이션   | BottomNav 포함        | 없음 (단일 페이지)          |
 | 의존성       | dnd-kit, recharts 등  | 최소 의존성                 |
-| DB          | Supabase              | 동일 Supabase DB 공유      |
+| DB          | Supabase              | 동일 Firestore DB 공유      |
 
 ## 주요 기능
 
@@ -65,13 +65,18 @@ dashboard/
 
 ```env
 # Supabase (메인 앱과 동일)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+FIREBASE_SERVICE_ACCOUNT_JSON=
 ```
 
 ## 개발 시 주의사항
 
-- 메인 앱과 **동일한 Supabase DB**를 공유하므로 스키마 변경 시 양쪽 모두 확인
+- 메인 앱과 **동일한 Firestore DB**를 공유하므로 스키마 변경 시 양쪽 모두 확인
 - 데스크톱 중심 레이아웃 (`max-w-4xl`)
 - 타입 정의가 메인 앱과 일부 중복됨 (`WeeklyGoal`, `WeeklyReflection`, `Pillar`)
 - 주차 네비게이션: `shiftWeek()`, `formatWeekLabel()` 유틸 사용
