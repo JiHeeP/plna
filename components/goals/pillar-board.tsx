@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
-import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
+import { PILLAR_LABELS } from "@/lib/constants";
 import { Plus } from "lucide-react";
 import { SortableCard } from "./sortable-card";
 import type { Pillar } from "@/lib/types";

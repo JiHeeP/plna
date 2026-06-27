@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Milestone } from "@/lib/types";
 import { PILLAR_LABELS } from "@/lib/constants";
 import { CheckCircle2, Circle, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { createClient } from "@/lib/firebase/client";
 
 const TIMEFRAME_LABELS: Record<string, string> = {
   "6month": "6개월",
@@ -45,11 +43,17 @@ export function MilestoneTimeline({ milestones, onUpdate }: MilestoneTimelinePro
     const currentIdx = order.indexOf(milestone.status);
     const nextStatus = order[(currentIdx + 1) % order.length];
 
-    const supabase = createClient();
-    await supabase
-      .from("milestones")
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
-      .eq("id", milestone.id);
+    const response = await fetch("/api/goals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "milestone",
+        id: milestone.id,
+        status: nextStatus,
+      }),
+    });
+
+    if (!response.ok) return;
     onUpdate();
   };
 

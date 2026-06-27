@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/firebase/client";
 
 const CONTEXT_OPTIONS = ["학교", "스몰토크 수업", "낯선 모임", "온라인", "가족", "친구", "기타"];
 
@@ -37,26 +36,35 @@ export function ConversationForm() {
     if (!form.partner.trim() && !form.summary.trim()) return;
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       // 대화 기록 저장
-      const { error } = await supabase.from("conversations").insert({
-        date: form.date,
-        partner: form.partner,
-        context: form.context,
-        summary: form.summary,
-        went_well: form.went_well,
-        to_improve: form.to_improve,
+      const conversationResponse = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: form.date,
+          partner: form.partner,
+          context: form.context,
+          summary: form.summary,
+          went_well: form.went_well,
+          to_improve: form.to_improve,
+        }),
       });
 
-      if (error) throw error;
+      if (!conversationResponse.ok) throw new Error(`HTTP ${conversationResponse.status}`);
 
       // 새 만능대화소재가 있으면 저장
       if (form.new_topic.trim()) {
-        await supabase.from("conversation_topics").insert({
-          topic: form.new_topic.trim(),
+        const topicResponse = await fetch("/api/topics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: form.new_topic.trim(),
+          }),
         });
+
+        if (!topicResponse.ok) throw new Error(`HTTP ${topicResponse.status}`);
       }
 
       router.push("/conversations");

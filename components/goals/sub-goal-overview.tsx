@@ -301,7 +301,6 @@ export function SubGoalOverview({ subGoals, onUpdate }: SubGoalOverviewProps) {
       renderCard={(sg) => <SubGoalCard sg={sg} onUpdate={onUpdate} />}
       renderAddForm={(pillar, onClose) => (
         <AddSubGoalForm
-          pillar={pillar}
           onSave={(name) => {
             addSubGoal(pillar, name);
             onClose();
@@ -314,11 +313,9 @@ export function SubGoalOverview({ subGoals, onUpdate }: SubGoalOverviewProps) {
 }
 
 function AddSubGoalForm({
-  pillar,
   onSave,
   onCancel,
 }: {
-  pillar: Pillar;
   onSave: (name: string) => void;
   onCancel: () => void;
 }) {
