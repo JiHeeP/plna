@@ -67,14 +67,17 @@ npm run migrate:supabase-to-firestore
 
 ## 6. 보안 규칙 주의
 
-현재 앱은 일부 화면에서 브라우저 Firebase SDK를 직접 사용합니다. 따라서 Firestore Rules를 너무 강하게 잠그면 클라이언트 쓰기가 막힐 수 있고, 반대로 공개 쓰기를 열어두면 데이터가 위험합니다.
+Firestore는 production rules 상태를 유지합니다. 브라우저 화면은 Firestore SDK로 직접 읽고 쓰지 않고 `/api/*` Route를 호출하며, 서버 API Route가 Firebase Admin SDK로 Firestore에 접근합니다.
 
-운영 배포 전에는 둘 중 하나로 정리하는 것이 안전합니다.
+운영/Preview 배포 환경에는 다음 서버 환경변수가 필요합니다.
 
-1. Firebase Auth를 붙이고 사용자 기준 Firestore Rules를 작성합니다.
-2. 브라우저 직접 쓰기를 API Route로 옮기고 서버의 Firebase Admin SDK만 Firestore에 쓰게 합니다.
+```env
+FIREBASE_SERVICE_ACCOUNT_JSON=
+```
 
-인증 모델이 아직 정해지지 않았기 때문에 이 PR에는 공개 쓰기 Firestore Rules를 추가하지 않았습니다.
+이 값은 서비스 계정 JSON 전체 문자열 또는 base64 문자열입니다. 저장소에 커밋하지 말고 Vercel 환경변수 또는 로컬 `.env.local`에만 보관합니다.
+
+Firebase Auth 기반 사용자별 규칙은 추후 다중 사용자 권한이 필요해질 때 추가합니다.
 
 ## 참고 문서
 
