@@ -49,7 +49,8 @@ plna/
 │   ├── types.ts            # 전체 타입 정의
 │   ├── insights.ts         # AI 인사이트 타입 & 규칙 기반 폴백
 │   ├── utils.ts            # 유틸리티 함수
-│   └── supabase/           # Supabase 클라이언트 (client/server)
+│   ├── firebase/           # Firebase Firestore 클라이언트 (client/server)
+│   └── supabase/           # Firebase compatibility exports
 └── scripts/
     └── check-secrets.mjs   # 시크릿 검증 스크립트
 ```
@@ -131,5 +132,5 @@ DIGEST_TIMEZONE=Asia/Seoul
 - PWA 지원: `manifest.json` 포함
 - 한국어 UI: `lang="ko"`
 - 날짜 형식: `YYYY-MM-DD` (일일), `YYYY-Www` (주간), `YYYY-MM` (월간), `YYYY-Qn` (분기)
-- Supabase를 직접 사용 (ORM 없음)
+- Firebase Firestore를 직접 사용 (ORM 없음)
 - `"use client"` 컴포넌트 중심 (서버 컴포넌트는 레이아웃 정도)
