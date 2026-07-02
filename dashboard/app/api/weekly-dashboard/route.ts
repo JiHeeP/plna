@@ -12,6 +12,9 @@ import { NextResponse, NextRequest } from "next/server";
 type FirestoreRow = Record<string, unknown> & { id: string };
 type DashboardWarning = { source: string; message: string };
 
+const FIRESTORE_QUOTA_COOLDOWN_MS = 2 * 60 * 1000;
+let firestoreQuotaCooldownUntil = 0;
+
 class DashboardQueryError extends Error {
   constructor(
     readonly source: string,
@@ -103,6 +106,27 @@ function compareBy(...fields: string[]) {
   };
 }
 
+function emptyDashboardPayload(week: string, warnings: DashboardWarning[] = []) {
+  return {
+    week,
+    dailyData: getWeekDatesFromStr(week).map((date) => ({
+      date: toDateString(date),
+      habitRate: 0,
+      habitCompleted: 0,
+      habitTotal: 0,
+      todoCompleted: 0,
+      todoTotal: 0,
+      todos: [],
+      accomplishments: "",
+      went_well: "",
+      to_improve: "",
+    })),
+    weeklyGoals: [],
+    reflection: null,
+    warnings,
+  };
+}
+
 async function querySource<T>(source: string, query: () => Promise<T>) {
   try {
     return await query();
@@ -129,6 +153,17 @@ function addWarning(warnings: DashboardWarning[], warning: DashboardWarning) {
   if (!warnings.some((entry) => entry.source === warning.source && entry.message === warning.message)) {
     warnings.push(warning);
   }
+}
+
+function isQuotaWarning(warning: DashboardWarning) {
+  return /RESOURCE_EXHAUSTED|Quota exceeded/i.test(warning.message);
+}
+
+function quotaCooldownWarning(): DashboardWarning {
+  return {
+    source: "firestore-quota",
+    message: `Firestore quota retry cooldown active until ${new Date(firestoreQuotaCooldownUntil).toISOString()}`,
+  };
 }
 
 async function optionalQuery<T>(
@@ -280,13 +315,19 @@ function errorResponse(error: unknown, req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const requestedWeek = req.nextUrl.searchParams.get("week");
+    const fallbackWeek = requestedWeek || getISOWeekString(new Date());
+    if (Date.now() < firestoreQuotaCooldownUntil) {
+      return NextResponse.json(emptyDashboardPayload(fallbackWeek, [quotaCooldownWarning()]));
+    }
+
     const db = getFirestore(getFirebaseAdminApp());
     const warnings: DashboardWarning[] = [];
     const week = await optionalQuery(
       warnings,
       "weekly-dashboard-week",
       getISOWeekString(new Date()),
-      () => resolveDashboardWeek(db, req.nextUrl.searchParams.get("week"), warnings),
+      () => resolveDashboardWeek(db, requestedWeek, warnings),
     );
 
     const dates = getWeekDatesFromStr(week);
@@ -335,6 +376,10 @@ export async function GET(req: NextRequest) {
         to_improve: String(journal?.to_improve ?? ""),
       };
     });
+
+    if (warnings.some(isQuotaWarning)) {
+      firestoreQuotaCooldownUntil = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+    }
 
     return NextResponse.json({
       week,
