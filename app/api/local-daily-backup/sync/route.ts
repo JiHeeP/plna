@@ -8,6 +8,12 @@ import {
   type LocalBackupTodo,
 } from "@/lib/local-daily-backup";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -34,12 +40,29 @@ function uniqueBy<T>(items: T[], keyFor: (item: T) => string) {
   return [...new Map(items.map((item) => [keyFor(item), item])).values()];
 }
 
+function json(body: unknown, init?: ResponseInit) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: {
+      ...corsHeaders,
+      ...init?.headers,
+    },
+  });
+}
+
+export function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const payload = normalizeLocalDailyBackupPayload(await request.json().catch(() => null));
 
     if (!hasLocalDailyBackupPayload(payload)) {
-      return NextResponse.json({
+      return json({
         ok: true,
         synced: {
           journals: 0,
@@ -64,7 +87,7 @@ export async function POST(request: NextRequest) {
         .upsert(journalRows, { onConflict: "date" });
 
       if (error) {
-        return NextResponse.json({ ok: false, source: "daily_journals", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "daily_journals", error: error.message }, { status: 500 });
       }
     }
 
@@ -89,7 +112,7 @@ export async function POST(request: NextRequest) {
         .upsert(todoRows, { onConflict: "id" });
 
       if (error) {
-        return NextResponse.json({ ok: false, source: "daily_todos", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "daily_todos", error: error.message }, { status: 500 });
       }
     }
 
@@ -99,7 +122,7 @@ export async function POST(request: NextRequest) {
       .eq("is_active", true);
 
     if (habitsError) {
-      return NextResponse.json({ ok: false, source: "daily_habits", error: habitsError.message }, { status: 500 });
+      return json({ ok: false, source: "daily_habits", error: habitsError.message }, { status: 500 });
     }
 
     const habitByNameEn = new Map(
@@ -127,11 +150,11 @@ export async function POST(request: NextRequest) {
         .upsert(habitRows, { onConflict: "habit_id,date" });
 
       if (error) {
-        return NextResponse.json({ ok: false, source: "habit_logs", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "habit_logs", error: error.message }, { status: 500 });
       }
     }
 
-    return NextResponse.json({
+    return json({
       ok: true,
       synced: {
         journals: journalRows.length,
@@ -142,7 +165,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Local daily backup sync failed:", error);
-    return NextResponse.json(
+    return json(
       { ok: false, error: "Local daily backup sync failed" },
       { status: 500 },
     );

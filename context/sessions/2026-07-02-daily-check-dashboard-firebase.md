@@ -113,3 +113,20 @@
   - habit check는 `name_en`을 실제 `daily_habits.id`로 매핑해 `habit_logs`에 upsert
 - sync 완료 이벤트 후 main weekly dashboard가 최신 데이터 주차를 다시 계산해 로드하도록 수정했다.
 - 실제 Firestore에 `2099-12-31` 임시 payload를 쓰고 바로 삭제하는 방식으로 sync API 쓰기/정리 검증을 완료했다.
+
+## 2026-07-02 추가 점검: 다른 원본 후보
+
+- 이 Mac의 Chrome/Chromium/Brave/Edge/Safari/WebKit/Arc 저장소에서 `journal_YYYY-MM-DD`, `todos_YYYY-MM-DD`, `habits_YYYY-MM-DD` 키 이름을 검색했으나 발견되지 않았다.
+- Chrome History 기준 PLNA 방문 origin은 `https://plna.vercel.app`이었다.
+  - Chrome Default: 최신 방문 `2026-05-01`
+  - Chrome Profile 2: 최신 방문 `2026-07-02`
+- 접근 가능한 Firebase 프로젝트 3개(`findthething-b5821`, `math-operation-master`, `plna-60b1d`)를 검사했다.
+  - daily 계열 데이터는 `plna-60b1d`에만 있고, 2026-06-01 이후 `daily_journals`, `daily_todos`, `habit_logs`는 없었다.
+- Vercel에 남아 있는 Supabase env를 임시로 pull해 조회를 시도했으나 Supabase host DNS가 존재하지 않아 원본으로 사용할 수 없었다.
+
+## 2026-07-02 추가 구현: 다른 origin 복구 지원
+
+- `/api/local-daily-backup/sync`에 CORS `OPTIONS`/`POST` 응답을 추가했다.
+- `public/daily-backup-recovery.js`를 추가했다.
+  - 예전 Vercel URL, localhost, 모바일 브라우저 등 다른 origin에서 실행해도 `https://plna.vercel.app/api/local-daily-backup/sync`로 백업을 보낼 수 있다.
+  - 동기화 개수만 alert로 표시하고, 기록 내용은 로그로 출력하지 않는다.
