@@ -353,3 +353,29 @@
 - `npm run lint`: 통과
 - `npm run build`: 통과
 - `cd dashboard && npm run lint && npm run build`: 통과
+
+## 2026-07-02 추가 점검: weekly dashboard 직접 query의 Timestamp 날짜 누락 가능성
+
+- daily API/Supabase 호환 레이어는 string 날짜와 Firestore Timestamp 날짜를 모두 조회하도록 보강했지만, `/api/weekly-dashboard`는 별도의 직접 Firestore query를 사용하고 있었다.
+- 기존 weekly dashboard query는 `where("date", ">=", "YYYY-MM-DD")` / `where("date", "<=", "YYYY-MM-DD")` string 범위만 조회했다.
+- 따라서 이번주/지난주 daily 기록의 `date` 필드가 Firestore Timestamp/Date 타입으로 저장된 경우, Firebase에는 데이터가 있어도 대시보드 주간 조회에서 빠질 수 있었다.
+
+## 2026-07-02 추가 구현: weekly dashboard string+Timestamp date query
+
+- 루트 앱과 standalone `dashboard/` 앱의 `/api/weekly-dashboard`를 모두 수정했다.
+- 최신 daily date 계산:
+  - string 날짜 query: `date >= "0000-00-00"` + `orderBy("date", "desc")` + `limit(1)`
+  - Timestamp 날짜 query: `date >= Date(0)` + `orderBy("date", "desc")` + `limit(1)`
+  - 두 결과를 normalized date string으로 합쳐 최신 주차를 계산한다.
+- 주간 daily row 조회:
+  - string 범위: `startDate <= date <= endDate`
+  - Timestamp 범위: `startDateT00:00:00.000Z <= date <= endDateT23:59:59.999Z`
+  - document id 기준으로 중복 제거한다.
+- 이 변경은 "Firebase에 있는데 대시보드에 안 나오는" 원인 중 date field type mismatch를 제거한다.
+
+## 2026-07-02 추가 검증: weekly dashboard Timestamp date query
+
+- `npm test`: 30개 통과
+- `npm run lint`: 통과
+- `npm run build`: 통과
+- `cd dashboard && npm run lint && npm run build`: 통과

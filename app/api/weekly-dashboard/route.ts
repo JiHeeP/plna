@@ -64,6 +64,26 @@ function rowFromDoc(doc: { id: string; data: () => Record<string, unknown> }): F
   };
 }
 
+function uniqueRows(rows: FirestoreRow[]) {
+  return [...new Map(rows.map((row) => [row.id, row])).values()];
+}
+
+function dateStart(date: string) {
+  return new Date(`${date}T00:00:00.000Z`);
+}
+
+function dateEnd(date: string) {
+  return new Date(`${date}T23:59:59.999Z`);
+}
+
+function latestDateValue(rows: FirestoreRow[]) {
+  return rows
+    .map((row) => row.date)
+    .filter((date): date is string => typeof date === "string")
+    .sort()
+    .at(-1) ?? null;
+}
+
 function compareValues(a: unknown, b: unknown) {
   if (a === b) return 0;
   if (a == null) return 1;
@@ -91,8 +111,23 @@ async function querySource<T>(source: string, query: () => Promise<T>) {
 
 async function getLatestDate(db: FirebaseFirestore.Firestore, collectionName: string) {
   return querySource(collectionName, async () => {
-    const snapshot = await db.collection(collectionName).orderBy("date", "desc").limit(1).get();
-    return snapshot.docs[0] ? rowFromDoc(snapshot.docs[0]).date : null;
+    const [stringSnapshot, dateSnapshot] = await Promise.all([
+      db.collection(collectionName)
+        .where("date", ">=", "0000-00-00")
+        .orderBy("date", "desc")
+        .limit(1)
+        .get(),
+      db.collection(collectionName)
+        .where("date", ">=", new Date(0))
+        .orderBy("date", "desc")
+        .limit(1)
+        .get(),
+    ]);
+
+    return latestDateValue(uniqueRows([
+      ...stringSnapshot.docs.map(rowFromDoc),
+      ...dateSnapshot.docs.map(rowFromDoc),
+    ]));
   });
 }
 
@@ -110,12 +145,23 @@ async function getRowsByDateRange(
   endDate: string,
 ) {
   return querySource(collectionName, async () => {
-    const snapshot = await db
-      .collection(collectionName)
-      .where("date", ">=", startDate)
-      .where("date", "<=", endDate)
-      .get();
-    return snapshot.docs.map(rowFromDoc);
+    const [stringSnapshot, dateSnapshot] = await Promise.all([
+      db
+        .collection(collectionName)
+        .where("date", ">=", startDate)
+        .where("date", "<=", endDate)
+        .get(),
+      db
+        .collection(collectionName)
+        .where("date", ">=", dateStart(startDate))
+        .where("date", "<=", dateEnd(endDate))
+        .get(),
+    ]);
+
+    return uniqueRows([
+      ...stringSnapshot.docs.map(rowFromDoc),
+      ...dateSnapshot.docs.map(rowFromDoc),
+    ]);
   });
 }
 
