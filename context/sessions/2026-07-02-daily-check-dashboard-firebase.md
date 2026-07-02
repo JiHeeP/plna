@@ -281,6 +281,15 @@
 - daily 기록이 전혀 없을 때만 weekly goal/reflection 주차를 fallback으로 사용한다.
 - 기본 로드 시 weekly goal/reflection 최신 주차 조회는 daily 기록이 없을 때만 수행하므로 Firestore read도 줄어든다.
 
+## 2026-07-02 추가 구현: quota/부분 실패 시 dashboard partial response
+
+- `/api/weekly-dashboard`가 한 컬렉션 read 실패만으로 전체 응답을 500 처리하던 구조를 완화했다.
+- root 앱과 `dashboard/` 앱 모두 성공한 컬렉션 데이터는 유지하고, 실패한 source는 `warnings` 배열로 반환한다.
+- 기본 주차 계산 중 일부 latest read가 실패해도 성공한 latest 값으로 주차를 계산한다.
+- 모든 latest read가 실패하면 현재 주차를 fallback으로 사용해 local backup merge/표시 경로가 계속 살아 있게 했다.
+- UI는 `warnings`가 있는 200 응답을 받으면 `일부 데이터 누락 가능` 상태를 표시한다.
+- 로컬 검증 결과, 현재 Firestore quota 초과 상태에서도 `/api/weekly-dashboard`는 200을 반환하고 `warnings`에 quota 실패 source를 포함했다.
+
 ## 2026-07-02 추가 검증: dashboard 기본 주차
 
 - `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.

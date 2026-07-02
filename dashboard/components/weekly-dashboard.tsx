@@ -54,6 +54,12 @@ interface DashboardData {
   dailyData: DailyData[];
   weeklyGoals: WeeklyGoal[];
   reflection: { went_well: string; to_improve: string } | null;
+  warnings?: DashboardWarning[];
+}
+
+interface DashboardWarning {
+  source: string;
+  message: string;
 }
 
 interface DashboardLoadError {
@@ -107,6 +113,16 @@ function saveRemoteErrorState(error: DashboardLoadError) {
 
 function clearRemoteErrorState() {
   localStorage.removeItem(REMOTE_ERROR_STATE_KEY);
+}
+
+function partialLoadError(data: DashboardData): DashboardLoadError | null {
+  const warnings = data.warnings?.filter((warning) => warning.source && warning.message) ?? [];
+  if (warnings.length === 0) return null;
+
+  return {
+    source: "partial",
+    message: warnings.map((warning) => `${warning.source}: ${warning.message}`).join("; "),
+  };
 }
 
 function isRemoteRetryCoolingDown(state: RemoteDashboardErrorState | null) {
@@ -220,9 +236,10 @@ export function WeeklyDashboard() {
         }
         return;
       }
-      setLoadError(null);
       clearRemoteErrorState();
-      const dashboardData = mergeDashboardData(json as DashboardData, localDashboardData, !week);
+      const remoteDashboardData = json as DashboardData;
+      const dashboardData = mergeDashboardData(remoteDashboardData, localDashboardData, !week);
+      setLoadError(partialLoadError(remoteDashboardData));
       if (dashboardData.week !== week) setWeek(dashboardData.week);
       setData(dashboardData);
       setReflectionForm({
@@ -368,7 +385,9 @@ export function WeeklyDashboard() {
         <h2 className="text-lg font-bold">주간 대시보드</h2>
         <div className="flex items-center gap-1">
           {loadError && (
-            <span className="text-xs text-amber-600 mr-1">로컬 백업 표시 중</span>
+            <span className="text-xs text-amber-600 mr-1">
+              {loadError.source === "partial" ? "일부 데이터 누락 가능" : "로컬 백업 표시 중"}
+            </span>
           )}
           {saving && (
             <span className="text-xs text-muted-foreground mr-1">저장 중...</span>

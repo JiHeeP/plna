@@ -1,5 +1,6 @@
 import { getFirebaseAdminApp } from "@/lib/firebase/server";
 import {
+  getISOWeekString,
   getWeekDatesFromStr,
   resolveLatestDailyDashboardWeek,
   resolveLatestDashboardWeek,
@@ -9,6 +10,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { NextResponse, NextRequest } from "next/server";
 
 type FirestoreRow = Record<string, unknown> & { id: string };
+type DashboardWarning = { source: string; message: string };
 
 class DashboardQueryError extends Error {
   constructor(
@@ -109,6 +111,42 @@ async function querySource<T>(source: string, query: () => Promise<T>) {
   }
 }
 
+function warningFromError(fallbackSource: string, error: unknown): DashboardWarning {
+  if (error instanceof DashboardQueryError) {
+    return {
+      source: error.source,
+      message: error.message,
+    };
+  }
+
+  return {
+    source: fallbackSource,
+    message: error instanceof Error ? error.message : String(error),
+  };
+}
+
+function addWarning(warnings: DashboardWarning[], warning: DashboardWarning) {
+  if (!warnings.some((entry) => entry.source === warning.source && entry.message === warning.message)) {
+    warnings.push(warning);
+  }
+}
+
+async function optionalQuery<T>(
+  warnings: DashboardWarning[],
+  source: string,
+  fallback: T,
+  query: () => Promise<T>,
+) {
+  try {
+    return await query();
+  } catch (error) {
+    const warning = warningFromError(source, error);
+    console.warn("Weekly dashboard partial query error:", warning.source, warning.message);
+    addWarning(warnings, warning);
+    return fallback;
+  }
+}
+
 async function getLatestDate(db: FirebaseFirestore.Firestore, collectionName: string) {
   return querySource(collectionName, async () => {
     const [stringSnapshot, dateSnapshot] = await Promise.all([
@@ -182,13 +220,17 @@ async function getActiveHabits(db: FirebaseFirestore.Firestore) {
   });
 }
 
-async function resolveDashboardWeek(db: FirebaseFirestore.Firestore, requestedWeek: string | null) {
+async function resolveDashboardWeek(
+  db: FirebaseFirestore.Firestore,
+  requestedWeek: string | null,
+  warnings: DashboardWarning[],
+) {
   if (requestedWeek) return requestedWeek;
 
   const [latestLogDate, latestJournalDate, latestTodoDate] = await Promise.all([
-    getLatestDate(db, "habit_logs"),
-    getLatestDate(db, "daily_journals"),
-    getLatestDate(db, "daily_todos"),
+    optionalQuery(warnings, "habit_logs", null, () => getLatestDate(db, "habit_logs")),
+    optionalQuery(warnings, "daily_journals", null, () => getLatestDate(db, "daily_journals")),
+    optionalQuery(warnings, "daily_todos", null, () => getLatestDate(db, "daily_todos")),
   ]);
 
   const latestDailyWeek = resolveLatestDailyDashboardWeek({
@@ -200,13 +242,14 @@ async function resolveDashboardWeek(db: FirebaseFirestore.Firestore, requestedWe
   if (latestDailyWeek) return latestDailyWeek;
 
   const [latestGoalWeek, latestReflectionWeek] = await Promise.all([
-    getLatestWeek(db, "weekly_goals"),
-    getLatestWeek(db, "weekly_reflections"),
+    optionalQuery(warnings, "weekly_goals", null, () => getLatestWeek(db, "weekly_goals")),
+    optionalQuery(warnings, "weekly_reflections", null, () => getLatestWeek(db, "weekly_reflections")),
   ]);
 
   return resolveLatestDashboardWeek({
     latestGoalWeek: typeof latestGoalWeek === "string" ? latestGoalWeek : null,
     latestReflectionWeek: typeof latestReflectionWeek === "string" ? latestReflectionWeek : null,
+    fallbackDate: new Date(),
   });
 }
 
@@ -238,19 +281,27 @@ function errorResponse(error: unknown, req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const db = getFirestore(getFirebaseAdminApp());
-    const week = await resolveDashboardWeek(db, req.nextUrl.searchParams.get("week"));
+    const warnings: DashboardWarning[] = [];
+    const week = await optionalQuery(
+      warnings,
+      "weekly-dashboard-week",
+      getISOWeekString(new Date()),
+      () => resolveDashboardWeek(db, req.nextUrl.searchParams.get("week"), warnings),
+    );
 
     const dates = getWeekDatesFromStr(week);
     const startDate = toDateString(dates[0]);
     const endDate = toDateString(dates[6]);
 
     const [habits, logs, journals, todos, weeklyGoals, reflections] = await Promise.all([
-      getActiveHabits(db),
-      getRowsByDateRange(db, "habit_logs", startDate, endDate),
-      getRowsByDateRange(db, "daily_journals", startDate, endDate),
-      getRowsByDateRange(db, "daily_todos", startDate, endDate),
-      getWeeklyRows(db, "weekly_goals", week),
-      getWeeklyRows(db, "weekly_reflections", week),
+      optionalQuery(warnings, "daily_habits", [], () => getActiveHabits(db)),
+      optionalQuery(warnings, "habit_logs", [], () => getRowsByDateRange(db, "habit_logs", startDate, endDate)),
+      optionalQuery(warnings, "daily_journals", [], () =>
+        getRowsByDateRange(db, "daily_journals", startDate, endDate),
+      ),
+      optionalQuery(warnings, "daily_todos", [], () => getRowsByDateRange(db, "daily_todos", startDate, endDate)),
+      optionalQuery(warnings, "weekly_goals", [], () => getWeeklyRows(db, "weekly_goals", week)),
+      optionalQuery(warnings, "weekly_reflections", [], () => getWeeklyRows(db, "weekly_reflections", week)),
     ]);
 
     const completedLogs = logs.filter((log) => log.completed === true);
@@ -290,6 +341,7 @@ export async function GET(req: NextRequest) {
       dailyData,
       weeklyGoals: sortedWeeklyGoals,
       reflection,
+      warnings,
     });
   } catch (error) {
     return errorResponse(error, req);
