@@ -1,6 +1,12 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  safeDailyRecordId,
+  writeDailyJournal,
+  writeDailyTodo,
+  writeHabitLog,
+} from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 import { createClient } from "@/lib/firebase/server";
 import {
@@ -17,13 +23,6 @@ const corsHeaders = {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function safeDocId(value: string | undefined) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.includes("/")) return null;
-  return trimmed;
 }
 
 function stableTodoId(todo: LocalBackupTodo) {
@@ -74,7 +73,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const supabase = await createClient();
     const timestamp = nowIso();
 
     const journalRows = uniqueBy(payload.journals, (journal) => journal.date).map((journal) => ({
@@ -83,16 +81,15 @@ export async function POST(request: NextRequest) {
     }));
 
     if (journalRows.length > 0) {
-      const { error } = await supabase
-        .from("daily_journals")
-        .upsert(journalRows, { onConflict: "date" });
-
-      if (error) {
+      try {
+        await Promise.all(journalRows.map((journal) => writeDailyJournal(journal)));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         await recordDailyWriteAudit({
           target: "local_backup_sync",
           action: "sync",
           status: "error",
-          errorMessage: error.message,
+          errorMessage: message,
           metadata: {
             source: "daily_journals",
             journals: journalRows.length,
@@ -100,13 +97,13 @@ export async function POST(request: NextRequest) {
             habit_checks: payload.habitChecks.length,
           },
         });
-        return json({ ok: false, source: "daily_journals", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "daily_journals", error: message }, { status: 500 });
       }
     }
 
     const todoRows = uniqueBy(
       payload.todos.map((todo) => {
-        const id = safeDocId(todo.id) ?? stableTodoId(todo);
+        const id = safeDailyRecordId(todo.id) ?? stableTodoId(todo);
         return {
           id,
           date: todo.date,
@@ -120,16 +117,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (todoRows.length > 0) {
-      const { error } = await supabase
-        .from("daily_todos")
-        .upsert(todoRows, { onConflict: "id" });
-
-      if (error) {
+      try {
+        await Promise.all(todoRows.map((todo) => writeDailyTodo(todo)));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         await recordDailyWriteAudit({
           target: "local_backup_sync",
           action: "sync",
           status: "error",
-          errorMessage: error.message,
+          errorMessage: message,
           metadata: {
             source: "daily_todos",
             journals: journalRows.length,
@@ -137,7 +133,7 @@ export async function POST(request: NextRequest) {
             habit_checks: payload.habitChecks.length,
           },
         });
-        return json({ ok: false, source: "daily_todos", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "daily_todos", error: message }, { status: 500 });
       }
     }
 
@@ -150,6 +146,7 @@ export async function POST(request: NextRequest) {
     }> = [];
 
     if (payload.habitChecks.length > 0) {
+      const supabase = await createClient();
       const { data: habits, error: habitsError } = await supabase
         .from("daily_habits")
         .select("*")
@@ -192,16 +189,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (habitRows.length > 0) {
-      const { error } = await supabase
-        .from("habit_logs")
-        .upsert(habitRows, { onConflict: "habit_id,date" });
-
-      if (error) {
+      try {
+        await Promise.all(habitRows.map((row) => writeHabitLog(row)));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         await recordDailyWriteAudit({
           target: "local_backup_sync",
           action: "sync",
           status: "error",
-          errorMessage: error.message,
+          errorMessage: message,
           metadata: {
             source: "habit_logs",
             journals: journalRows.length,
@@ -210,7 +206,7 @@ export async function POST(request: NextRequest) {
             skipped_habit_checks: payload.habitChecks.length - habitRows.length,
           },
         });
-        return json({ ok: false, source: "habit_logs", error: error.message }, { status: 500 });
+        return json({ ok: false, source: "habit_logs", error: message }, { status: 500 });
       }
     }
 

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/firebase/server";
+import {
+  deleteDailyTodo,
+  patchDailyTodo,
+  writeDailyTodo,
+} from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 
 export async function GET(request: NextRequest) {
@@ -23,7 +28,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
   const body = await request.json();
   const text = String(body.text ?? "").trim();
   const sortOrder = Number(body.sort_order);
@@ -36,50 +40,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from("daily_todos")
-    .insert({
+  try {
+    const data = await writeDailyTodo({
       id,
       date: targetDate,
       text,
       sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
-    })
-    .select()
-    .single();
+    });
 
-  if (error) {
+    await recordDailyWriteAudit({
+      target: "todo",
+      action: "create",
+      status: "success",
+      date: targetDate,
+      recordId: String(data.id),
+      metadata: {
+        has_text: true,
+        sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+      },
+    });
+
+    return NextResponse.json(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await recordDailyWriteAudit({
       target: "todo",
       action: "create",
       status: "error",
       date: targetDate,
       recordId: id,
-      errorMessage: error.message,
+      errorMessage: message,
       metadata: {
         has_text: true,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
       },
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  await recordDailyWriteAudit({
-    target: "todo",
-    action: "create",
-    status: "success",
-    date: targetDate,
-    recordId: String(data?.id ?? id ?? ""),
-    metadata: {
-      has_text: true,
-      sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
-    },
-  });
-
-  return NextResponse.json(data);
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
   const body = await request.json();
   const { id } = body;
   const auditDate = typeof body.date === "string" ? body.date : null;
@@ -113,46 +113,47 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "no update fields provided" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("daily_todos")
-    .update(patch)
-    .eq("id", id);
+  try {
+    await patchDailyTodo({
+      id: String(id),
+      date: auditDate,
+      ...patch,
+    });
 
-  if (error) {
     await recordDailyWriteAudit({
       target: "todo",
       action: "update",
-      status: "error",
+      status: "success",
       date: auditDate,
       recordId: String(id),
-      errorMessage: error.message,
       metadata: {
         updates_completed: "completed" in body,
         updates_text: "text" in body,
         updates_sort_order: "sort_order" in body,
       },
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await recordDailyWriteAudit({
+      target: "todo",
+      action: "update",
+      status: "error",
+      date: auditDate,
+      recordId: String(id),
+      errorMessage: message,
+      metadata: {
+        updates_completed: "completed" in body,
+        updates_text: "text" in body,
+        updates_sort_order: "sort_order" in body,
+      },
+    });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  await recordDailyWriteAudit({
-    target: "todo",
-    action: "update",
-    status: "success",
-    date: auditDate,
-    recordId: String(id),
-    metadata: {
-      updates_completed: "completed" in body,
-      updates_text: "text" in body,
-      updates_sort_order: "sort_order" in body,
-    },
-  });
-
-  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient();
   const id = request.nextUrl.searchParams.get("id");
   const auditDate = request.nextUrl.searchParams.get("date");
 
@@ -160,30 +161,28 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("daily_todos")
-    .delete()
-    .eq("id", id);
+  try {
+    await deleteDailyTodo(id);
 
-  if (error) {
+    await recordDailyWriteAudit({
+      target: "todo",
+      action: "delete",
+      status: "success",
+      date: auditDate,
+      recordId: id,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await recordDailyWriteAudit({
       target: "todo",
       action: "delete",
       status: "error",
       date: auditDate,
       recordId: id,
-      errorMessage: error.message,
+      errorMessage: message,
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  await recordDailyWriteAudit({
-    target: "todo",
-    action: "delete",
-    status: "success",
-    date: auditDate,
-    recordId: id,
-  });
-
-  return NextResponse.json({ success: true });
 }

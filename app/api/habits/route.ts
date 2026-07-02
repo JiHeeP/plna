@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/firebase/server";
+import { writeHabitLog } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 
 export async function GET(request: NextRequest) {
@@ -102,7 +103,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
   const body = await request.json();
   const { habit_id, date, completed } = body;
 
@@ -113,76 +113,40 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  if (completed) {
-    const { error } = await supabase.from("habit_logs").upsert(
-      {
-        habit_id,
-        date,
-        completed: true,
-      },
-      { onConflict: "habit_id,date" },
-    );
-
-    if (error) {
-      await recordDailyWriteAudit({
-        target: "habit_log",
-        action: "upsert",
-        status: "error",
-        date,
-        recordId: String(habit_id),
-        errorMessage: error.message,
-        metadata: {
-          completed: true,
-        },
-      });
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+  try {
+    await writeHabitLog({
+      habit_id: String(habit_id),
+      date: String(date),
+      completed: completed === true,
+    });
 
     await recordDailyWriteAudit({
       target: "habit_log",
-      action: "upsert",
+      action: completed ? "upsert" : "delete",
       status: "success",
       date,
       recordId: String(habit_id),
       metadata: {
-        completed: true,
+        completed: completed === true,
       },
     });
-  } else {
-    const { error } = await supabase
-      .from("habit_logs")
-      .delete()
-      .eq("habit_id", habit_id)
-      .eq("date", date);
 
-    if (error) {
-      await recordDailyWriteAudit({
-        target: "habit_log",
-        action: "delete",
-        status: "error",
-        date,
-        recordId: String(habit_id),
-        errorMessage: error.message,
-        metadata: {
-          completed: false,
-        },
-      });
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     await recordDailyWriteAudit({
       target: "habit_log",
-      action: "delete",
-      status: "success",
+      action: completed ? "upsert" : "delete",
+      status: "error",
       date,
       recordId: String(habit_id),
+      errorMessage: message,
       metadata: {
-        completed: false,
+        completed: completed === true,
       },
     });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(request: NextRequest) {

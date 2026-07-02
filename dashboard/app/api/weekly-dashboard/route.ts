@@ -127,6 +127,27 @@ function compareBy(...fields: string[]) {
   };
 }
 
+function rowTimestamp(row: FirestoreRow) {
+  const value = row.updated_at ?? row.created_at ?? "";
+  return typeof value === "string" ? value : String(value ?? "");
+}
+
+function latestRowsBy(rows: FirestoreRow[], keyFor: (row: FirestoreRow) => string | null) {
+  const latest = new Map<string, FirestoreRow>();
+
+  for (const row of rows) {
+    const key = keyFor(row);
+    if (!key) continue;
+
+    const existing = latest.get(key);
+    if (!existing || rowTimestamp(existing) <= rowTimestamp(row)) {
+      latest.set(key, row);
+    }
+  }
+
+  return [...latest.values()];
+}
+
 function emptyDashboardPayload(week: string, warnings: DashboardWarning[] = []): DashboardPayload {
   return {
     week,
@@ -399,7 +420,14 @@ export async function GET(req: NextRequest) {
       optionalQuery(warnings, "weekly_reflections", [], () => getWeeklyRows(db, "weekly_reflections", week)),
     ]);
 
-    const completedLogs = logs.filter((log) => log.completed === true);
+    const latestLogs = latestRowsBy(logs, (log) =>
+      typeof log.habit_id === "string" && typeof log.date === "string"
+        ? `${log.habit_id}:${log.date}`
+        : null,
+    );
+    const journalsByDate = new Map(latestRowsBy(journals, (entry) =>
+      typeof entry.date === "string" ? entry.date : null,
+    ).map((entry) => [entry.date, entry]));
     const sortedTodos = todos.sort(compareBy("date", "sort_order", "created_at"));
     const sortedWeeklyGoals = weeklyGoals.sort(compareBy("sort_order", "created_at"));
     const reflection = reflections[0] ?? null;
@@ -407,8 +435,8 @@ export async function GET(req: NextRequest) {
 
     const dailyData = dates.map((d) => {
       const dateStr = toDateString(d);
-      const dayLogs = completedLogs.filter((log) => log.date === dateStr);
-      const journal = journals.find((entry) => entry.date === dateStr);
+      const dayLogs = latestLogs.filter((log) => log.date === dateStr && log.completed === true);
+      const journal = journalsByDate.get(dateStr);
       const dayTodos = sortedTodos.filter((todo) => todo.date === dateStr);
 
       return {

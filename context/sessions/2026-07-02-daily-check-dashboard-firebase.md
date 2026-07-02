@@ -530,3 +530,49 @@
   - `npm run build`: 통과
   - `npm run check:secrets`: 통과
   - `git diff --check`: 통과
+
+## 2026-07-02 추가 구현: read quota 독립 daily write 경로
+
+- 문제:
+  - 기존 `/api/journal` POST와 `/api/habits` PATCH는 Supabase 호환 레이어의 `upsert(... onConflict ...)`를 사용했다.
+  - `upsert`는 conflict 확인을 위해 Firestore read를 먼저 수행하므로, read quota 초과 중에는 write quota가 남아도 daily 저장이 실패할 수 있었다.
+  - `/api/todos` PATCH/DELETE와 `/api/local-daily-backup/sync`도 일부 경로에서 read에 의존했다.
+- 변경:
+  - `lib/firebase/daily-record-writes.ts`를 추가했다.
+  - read 없이 deterministic document id로 `set(..., { merge: true })` 또는 `delete()`를 수행한다.
+    - journal: `daily_journals_YYYY-MM-DD`
+    - habit log: `habit_logs_{habit_id}_YYYY-MM-DD`
+    - todo: 클라이언트/로컬 backup id 또는 안정 id
+  - 적용 대상:
+    - `/api/journal` POST
+    - `/api/todos` POST/PATCH/DELETE
+    - `/api/habits` PATCH
+    - `/api/local-daily-backup/sync`의 journal/todo/habit log write
+- habit off 처리:
+  - 과거 auto-id habit log가 남아 있는 상태에서 deterministic false row를 쓸 수 있으므로, `/api/weekly-dashboard` 집계는 `habit_id + date` 기준 최신 `updated_at/created_at` row를 우선하도록 변경했다.
+  - journal도 같은 날짜 중 최신 row를 우선 표시한다.
+  - root 앱과 standalone `dashboard/` 앱 모두 동일하게 수정했다.
+
+## 2026-07-02 추가 검증: read quota 초과 중 write probe
+
+- Firestore read quota가 계속 초과된 상태에서 임시 미래 날짜 `2099-12-30`으로 direct write/delete probe를 실행했다.
+- 읽기 없이 아래 3개 문서를 write 후 delete했다.
+  - `daily_journals_2099-12-30`
+  - `daily_todo_2099-12-30_quota_write_probe`
+  - `habit_logs_quota_probe_habit_2099-12-30`
+- 결과:
+  - write/delete 성공
+  - 따라서 현재 read quota 초과 상태에서도 direct write 경로 자체는 동작한다.
+- `tests/daily-record-writes.test.ts`를 추가했다.
+  - journal/todo/habit write helper가 Firestore read를 호출하지 않는 것을 검증한다.
+  - deterministic id helper를 검증한다.
+- 검증 결과:
+  - `npm test`: 41개 통과
+  - `npm run lint`: 통과
+  - `npm run build`: 통과
+  - `cd dashboard && npm run lint`: 통과
+  - `cd dashboard && npm run build`: 통과
+  - `npm run check:secrets`: 통과
+  - `git diff --check`: 통과
+- 여전히 남은 외부 상태:
+  - 실제 이번주/지난주 문서 read 검증은 `8 RESOURCE_EXHAUSTED: Quota exceeded.`로 차단됨.
