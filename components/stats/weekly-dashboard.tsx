@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -343,9 +344,14 @@ export function WeeklyDashboard() {
               </p>
             </div>
           )}
-          <Button size="sm" variant="outline" onClick={load}>
-            다시 시도
-          </Button>
+          <div className="flex justify-center gap-2">
+            <Button size="sm" variant="outline" onClick={load}>
+              다시 시도
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/local-daily-backup/status">백업 상태</Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

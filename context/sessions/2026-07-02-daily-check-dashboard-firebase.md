@@ -218,3 +218,20 @@
   - 첫 로드에서 local fallback 표시 확인
   - reload 후 `/api/weekly-dashboard` 호출 횟수가 1회에 머문 것 확인
   - `plna_weekly_dashboard_remote_error_state.failed_at` 기록 확인
+
+## 2026-07-02 추가 구현: local backup status page
+
+- `/local-daily-backup/status` 페이지를 추가했다.
+- 현재 브라우저의 local daily backup 개수(`journal`, `todo`, `habit`)와 최신 local week를 표시한다.
+- Firebase sync 실패 상태, dashboard remote read 실패 상태, 마지막 sync 시간을 표시한다.
+- local backup이 있으면 sync backoff 상태를 지우고 재시도를 요청할 수 있다.
+- dashboard 오류 화면에서 status 페이지로 이동하는 버튼을 추가했다.
+- 다른 브라우저/기기에서 실행할 recovery bookmarklet을 복사할 수 있게 했다.
+
+## 2026-07-02 추가 검증: status page
+
+- local browser smoke:
+  - localStorage에 `2026-07-01` daily backup 입력
+  - `/api/weekly-dashboard`, `/api/local-daily-backup/sync`를 500으로 모킹
+  - `/local-daily-backup/status`에서 backup count, `2026-W27`, remote/sync 실패 상태 표시 확인
+  - dashboard 오류 화면의 `백업 상태` 버튼이 status 페이지로 이동하는 것 확인
