@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  getISOWeekString,
   shiftWeek,
   formatWeekLabel,
 } from "@/lib/utils";
@@ -22,11 +21,20 @@ import type { WeeklyGoal } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
+interface DailyTodoSummary {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 interface DailyData {
   date: string;
   habitRate: number;
   habitCompleted: number;
   habitTotal: number;
+  todoCompleted: number;
+  todoTotal: number;
+  todos: DailyTodoSummary[];
   accomplishments: string;
   went_well: string;
   to_improve: string;
@@ -39,6 +47,12 @@ interface DashboardData {
   reflection: { went_well: string; to_improve: string } | null;
 }
 
+interface DashboardLoadError {
+  message: string;
+  source?: string;
+  status?: number;
+}
+
 function habitRateColor(rate: number) {
   if (rate >= 70) return "text-green-600";
   if (rate >= 40) return "text-amber-600";
@@ -46,8 +60,9 @@ function habitRateColor(rate: number) {
 }
 
 export function WeeklyDashboard() {
-  const [week, setWeek] = useState(() => getISOWeekString(new Date()));
+  const [week, setWeek] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loadError, setLoadError] = useState<DashboardLoadError | null>(null);
   const [loading, setLoading] = useState(true);
   const [reflectionForm, setReflectionForm] = useState({
     went_well: "",
@@ -61,18 +76,32 @@ export function WeeklyDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/weekly-dashboard?week=${week}`, {
+      const res = await fetch(week ? `/api/weekly-dashboard?week=${week}` : "/api/weekly-dashboard", {
         cache: "no-store",
       });
-      if (!res.ok) throw new Error("failed");
-      const json: DashboardData = await res.json();
-      setData(json);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setData(null);
+        setLoadError({
+          message: typeof json?.error === "string" ? json.error : `HTTP ${res.status}`,
+          source: typeof json?.source === "string" ? json.source : undefined,
+          status: res.status,
+        });
+        return;
+      }
+      setLoadError(null);
+      const dashboardData = json as DashboardData;
+      if (dashboardData.week !== week) setWeek(dashboardData.week);
+      setData(dashboardData);
       setReflectionForm({
-        went_well: json.reflection?.went_well ?? "",
-        to_improve: json.reflection?.to_improve ?? "",
+        went_well: dashboardData.reflection?.went_well ?? "",
+        to_improve: dashboardData.reflection?.to_improve ?? "",
       });
-    } catch {
+    } catch (error) {
       setData(null);
+      setLoadError({
+        message: error instanceof Error ? error.message : "대시보드 데이터를 불러오지 못했습니다",
+      });
     } finally {
       setLoading(false);
     }
@@ -100,6 +129,7 @@ export function WeeklyDashboard() {
 
   const saveReflection = useCallback(
     async (form: typeof reflectionForm) => {
+      if (!week) return;
       setSaving(true);
       try {
         const res = await fetch("/api/weekly-reflections", {
@@ -142,10 +172,24 @@ export function WeeklyDashboard() {
   if (!data || data.dailyData.length === 0) {
     return (
       <Card>
-        <CardContent className="py-6">
-          <p className="text-sm text-muted-foreground text-center">
+        <CardContent className="space-y-3 py-6 text-center">
+          <p className="text-sm text-muted-foreground">
             데이터를 불러올 수 없습니다
           </p>
+          {loadError && (
+            <div className="space-y-1 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-left">
+              <p className="text-xs font-medium text-destructive">
+                {loadError.source ? `${loadError.source} 연결 오류` : "연결 오류"}
+                {loadError.status ? ` (${loadError.status})` : ""}
+              </p>
+              <p className="break-words text-xs leading-relaxed text-muted-foreground">
+                {loadError.message}
+              </p>
+            </div>
+          )}
+          <Button size="sm" variant="outline" onClick={load}>
+            다시 시도
+          </Button>
         </CardContent>
       </Card>
     );
@@ -155,6 +199,7 @@ export function WeeklyDashboard() {
 
   const rows = [
     { label: "습관 달성률", key: "habitRate" as const },
+    { label: "할 일", key: "todos" as const },
     { label: "잘한 일", key: "went_well" as const },
     { label: "보완할 점", key: "to_improve" as const },
     { label: "오늘 한 일", key: "accomplishments" as const },
@@ -183,16 +228,20 @@ export function WeeklyDashboard() {
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setWeek((w) => shiftWeek(w, -1))}
+          disabled={!week}
+          onClick={() => week && setWeek(shiftWeek(week, -1))}
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm lg:text-base font-semibold">{formatWeekLabel(week)}</span>
+        <span className="text-sm lg:text-base font-semibold">
+          {week ? formatWeekLabel(week) : "-"}
+        </span>
         <Button
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setWeek((w) => shiftWeek(w, 1))}
+          disabled={!week}
+          onClick={() => week && setWeek(shiftWeek(week, 1))}
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -237,6 +286,38 @@ export function WeeklyDashboard() {
                           <span className={`font-semibold ${habitRateColor(day.habitRate)}`}>
                             {day.habitRate}%
                           </span>
+                        ) : row.key === "todos" ? (
+                          day.todoTotal > 0 ? (
+                            <div className="space-y-1 text-left">
+                              <div className="text-[10px] lg:text-xs font-semibold text-muted-foreground">
+                                {day.todoCompleted}/{day.todoTotal} 완료
+                              </div>
+                              <div className="space-y-0.5">
+                                {day.todos.slice(0, 3).map((todo) => (
+                                  <div
+                                    key={todo.id}
+                                    className="flex items-start gap-1.5 text-[11px] lg:text-sm leading-tight text-muted-foreground"
+                                  >
+                                    {todo.completed ? (
+                                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-green-600" />
+                                    ) : (
+                                      <Circle className="mt-0.5 h-3 w-3 shrink-0 text-gray-400" />
+                                    )}
+                                    <span className={todo.completed ? "line-through" : ""}>
+                                      {todo.text}
+                                    </span>
+                                  </div>
+                                ))}
+                                {day.todos.length > 3 && (
+                                  <div className="text-[10px] lg:text-xs text-muted-foreground">
+                                    +{day.todos.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px] lg:text-sm">-</span>
+                          )
                         ) : (
                           <span className="text-muted-foreground text-[11px] lg:text-sm leading-tight block text-left whitespace-pre-line">
                             {day[row.key] || "-"}
