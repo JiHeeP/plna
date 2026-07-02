@@ -323,6 +323,16 @@
   - journal/todo 텍스트 내용은 기록하지 않고, 날짜/대상/action/status/error/source/count 같은 메타데이터만 기록한다.
 - `components/dashboard/daily-todo.tsx`의 todo update/delete 요청에 `date`를 포함해 날짜별 감사가 가능하게 했다.
 
+## 2026-07-02 추가 구현: daily write audit 조회 API
+
+- `/api/daily-write-audit`를 추가했다.
+- 기본 최근 14일, 최대 500개 감사 로그를 `created_at` 기준으로 조회한다.
+- 응답은 공개용 메타데이터만 포함한다.
+  - `record_id`와 journal/todo 본문은 응답하지 않는다.
+  - summary는 status/target/date별 count를 제공한다.
+- 현재 Firestore read quota 초과 상태에서는 이 API도 `daily_write_audit` read가 막힐 수 있다.
+- quota reset 또는 billing/quota 상향 이후에는 이 API로 저장 시도가 실제로 있었는지 날짜별 확인 가능하다.
+
 ## 2026-07-02 추가 검증: dashboard 기본 주차
 
 - `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.
