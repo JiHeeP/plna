@@ -1,5 +1,6 @@
 (async function recoverPlnaDailyBackups() {
-  const apiUrl = "https://plna.vercel.app/api/local-daily-backup/sync";
+  const appOrigin = "https://plna.vercel.app";
+  const importUrl = `${appOrigin}/local-daily-backup/import`;
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
   function parseJson(value) {
@@ -102,28 +103,62 @@
     return;
   }
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const result = await response.json();
-
-  if (!response.ok || !result.ok) {
-    alert(`PLNA: backup sync failed (${result.source || response.status}).`);
+  const transferId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const target = window.open(importUrl, "plna_daily_backup_import");
+  if (!target) {
+    alert("PLNA: popup was blocked. Allow popups for this page and run recovery again.");
     return;
   }
 
-  localStorage.setItem(
-    "plna_local_daily_backup_last_sync",
-    JSON.stringify({
-      synced_at: new Date().toISOString(),
-      synced: result.synced,
-      source_origin: location.origin,
-    }),
-  );
+  let acknowledged = false;
 
-  alert(
-    `PLNA: synced ${result.synced.journals} journals, ${result.synced.todos} todos, ${result.synced.habitLogs} habit logs.`,
-  );
+  function sendPayload() {
+    target.postMessage(
+      {
+        type: "plna:local-daily-backup-import",
+        transferId,
+        sourceOrigin: location.origin,
+        payload,
+      },
+      appOrigin,
+    );
+  }
+
+  function receiveAck(event) {
+    if (event.origin !== appOrigin) return;
+    if (!event.data || event.data.type !== "plna:local-daily-backup-imported") return;
+    if (event.data.transferId !== transferId) return;
+
+    acknowledged = true;
+    window.removeEventListener("message", receiveAck);
+    const imported = event.data.imported || {};
+    localStorage.setItem(
+      "plna_local_daily_backup_last_import_transfer",
+      JSON.stringify({
+        transferred_at: new Date().toISOString(),
+        source_origin: location.origin,
+        imported,
+      }),
+    );
+    alert(
+      `PLNA: moved ${imported.journals || 0} journals, ${imported.todos || 0} todos, ${imported.habitChecks || 0} habit checks to plna.vercel.app.`,
+    );
+  }
+
+  window.addEventListener("message", receiveAck);
+  sendPayload();
+  const retry = window.setInterval(() => {
+    if (acknowledged || target.closed) {
+      window.clearInterval(retry);
+      return;
+    }
+    sendPayload();
+  }, 750);
+
+  window.setTimeout(() => {
+    if (acknowledged) return;
+    window.clearInterval(retry);
+    window.removeEventListener("message", receiveAck);
+    alert("PLNA: opened the import page. If the dashboard did not update, run recovery again from this page.");
+  }, 10000);
 })();

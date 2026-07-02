@@ -185,3 +185,20 @@
 - local browser smoke:
   - API 500 모킹 상태에서 `2026-07-01` local backup이 weekly dashboard `6/29 ~ 7/5`에 표시됨
   - sync 성공 후 같은 payload로 reload해도 `/api/local-daily-backup/sync` 재호출 없음
+
+## 2026-07-02 추가 구현: quota 독립 import 복구 경로
+
+- `/local-daily-backup/import` 페이지를 추가했다.
+- `public/daily-backup-recovery.js`는 더 이상 다른 origin에서 곧바로 Firestore sync API만 호출하지 않는다.
+  - 먼저 `https://plna.vercel.app/local-daily-backup/import`를 열고 `postMessage`로 백업 payload를 넘긴다.
+  - import 페이지가 `plna.vercel.app` origin의 localStorage에 `journal_YYYY-MM-DD`, `todos_YYYY-MM-DD`, `habits_YYYY-MM-DD` 키를 복원한다.
+  - 이후 dashboard fallback이 즉시 읽고, Firebase sync는 앱의 기존 local backup sync가 재시도한다.
+- 이 경로는 Firestore quota가 초과된 상태에서도 대시보드 표시 복구가 가능하다.
+
+## 2026-07-02 추가 검증: import 복구
+
+- local browser smoke:
+  - `/local-daily-backup/import`에 recovery payload를 `postMessage`로 전달
+  - localStorage daily backup 키 3종 생성 확인
+  - `/api/local-daily-backup/sync`를 500으로 모킹해도 `/weekly-dashboard`에 `2026-W27` local backup 표시 확인
+  - sync 실패 상태가 `plna_local_daily_backup_sync_state`에 기록되는 것 확인

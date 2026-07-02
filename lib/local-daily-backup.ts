@@ -215,6 +215,70 @@ export function createLocalDailyBackupPayloadSignature(payload: LocalDailyBackup
   });
 }
 
+export function localDailyBackupPayloadToStorageEntries(input: LocalDailyBackupPayload): Array<[string, string]> {
+  const payload = normalizeLocalDailyBackupPayload(input);
+  const entries: Array<[string, string]> = [];
+  const journalsByDate = new Map<string, LocalBackupJournal>();
+  const todosByDate = new Map<string, LocalBackupTodo[]>();
+  const habitsByDate = new Map<string, Record<string, boolean>>();
+
+  payload.journals.forEach((journal) => {
+    journalsByDate.set(journal.date, journal);
+  });
+
+  payload.todos.forEach((todo) => {
+    const todos = todosByDate.get(todo.date) ?? [];
+    todos.push(todo);
+    todosByDate.set(todo.date, todos);
+  });
+
+  payload.habitChecks.forEach((check) => {
+    const checked = habitsByDate.get(check.date) ?? {};
+    checked[check.habitNameEn] = true;
+    habitsByDate.set(check.date, checked);
+  });
+
+  [...journalsByDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .forEach(([date, journal]) => {
+      entries.push([
+        `journal_${date}`,
+        JSON.stringify({
+          accomplishments: journal.accomplishments,
+          to_improve: journal.to_improve,
+          went_well: journal.went_well,
+        }),
+      ]);
+    });
+
+  [...todosByDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .forEach(([date, todos]) => {
+      entries.push([
+        `todos_${date}`,
+        JSON.stringify(
+          todos
+            .sort((left, right) => left.sort_order - right.sort_order || left.text.localeCompare(right.text))
+            .map((todo) => ({
+              id: todo.id,
+              text: todo.text,
+              completed: todo.completed,
+              sort_order: todo.sort_order,
+              created_at: todo.created_at,
+            })),
+        ),
+      ]);
+    });
+
+  [...habitsByDate.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .forEach(([date, checked]) => {
+      entries.push([`habits_${date}`, JSON.stringify(checked)]);
+    });
+
+  return entries;
+}
+
 function dateToWeek(date: string) {
   const value = new Date(`${date}T00:00:00`);
   const d = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));

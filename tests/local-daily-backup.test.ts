@@ -6,6 +6,7 @@ import {
   buildLocalDailyDashboardData,
   createLocalDailyBackupPayloadSignature,
   hasLocalDailyBackupPayload,
+  localDailyBackupPayloadToStorageEntries,
   normalizeLocalDailyBackupPayload,
 } from "../lib/local-daily-backup";
 
@@ -175,5 +176,50 @@ describe("local daily backup sync payload", () => {
       createLocalDailyBackupPayloadSignature(first),
       createLocalDailyBackupPayloadSignature(second),
     );
+  });
+
+  it("converts a backup payload back into localStorage daily backup keys", () => {
+    const entries = localDailyBackupPayloadToStorageEntries(
+      normalizeLocalDailyBackupPayload({
+        journals: [
+          {
+            date: "2026-07-01",
+            accomplishments: "imported",
+            to_improve: "sleep",
+            went_well: "focus",
+          },
+        ],
+        todos: [
+          { id: "todo_2", date: "2026-07-01", text: "Second", completed: false, sort_order: 2 },
+          { id: "todo_1", date: "2026-07-01", text: "First", completed: true, sort_order: 1 },
+        ],
+        habitChecks: [
+          { date: "2026-07-01", habitNameEn: "read" },
+          { date: "2026-07-01", habitNameEn: "stretch" },
+        ],
+      }),
+    );
+
+    assert.deepEqual(entries, [
+      [
+        "journal_2026-07-01",
+        JSON.stringify({
+          accomplishments: "imported",
+          to_improve: "sleep",
+          went_well: "focus",
+        }),
+      ],
+      [
+        "todos_2026-07-01",
+        JSON.stringify([
+          { id: "todo_1", text: "First", completed: true, sort_order: 1 },
+          { id: "todo_2", text: "Second", completed: false, sort_order: 2 },
+        ]),
+      ],
+      [
+        "habits_2026-07-01",
+        JSON.stringify({ read: true, stretch: true }),
+      ],
+    ]);
   });
 });
