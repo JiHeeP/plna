@@ -235,3 +235,19 @@
   - `/api/weekly-dashboard`, `/api/local-daily-backup/sync`를 500으로 모킹
   - `/local-daily-backup/status`에서 backup count, `2026-W27`, remote/sync 실패 상태 표시 확인
   - dashboard 오류 화면의 `백업 상태` 버튼이 status 페이지로 이동하는 것 확인
+
+## 2026-07-02 추가 점검: 실제 Chrome local backup 상태
+
+- 사용자의 Chrome 열린 PLNA 탭(`https://plna.vercel.app/`)을 확인했다.
+- `https://plna.vercel.app/local-daily-backup/status` 화면 기준 현재 Chrome profile의 local daily backup은 0건이었다.
+  - 기록: 0
+  - 할 일: 0
+  - 습관: 0
+- Chrome 디스크 저장소에서도 `journal_2026-*`, `todos_2026-*`, `habits_2026-*` key는 발견되지 않았다.
+- Firestore 직접 조회는 현재도 `8 RESOURCE_EXHAUSTED: Quota exceeded.`로 실패했다.
+
+## 2026-07-02 추가 구현: local sync read 절감
+
+- `/api/local-daily-backup/sync`가 habit backup이 없을 때도 `daily_habits`를 읽던 동작을 제거했다.
+- journal/todo만 있는 local backup은 불필요한 Firestore read 없이 upsert를 시도할 수 있다.
+- habit backup이 있을 때만 `daily_habits`를 읽어 `name_en`에서 habit id로 매핑한다.

@@ -116,33 +116,43 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data: habits, error: habitsError } = await supabase
-      .from("daily_habits")
-      .select("*")
-      .eq("is_active", true);
+    let habitRows: Array<{
+      habit_id: string;
+      date: string;
+      completed: true;
+      value: null;
+      created_at: string;
+    }> = [];
 
-    if (habitsError) {
-      return json({ ok: false, source: "daily_habits", error: habitsError.message }, { status: 500 });
+    if (payload.habitChecks.length > 0) {
+      const { data: habits, error: habitsError } = await supabase
+        .from("daily_habits")
+        .select("*")
+        .eq("is_active", true);
+
+      if (habitsError) {
+        return json({ ok: false, source: "daily_habits", error: habitsError.message }, { status: 500 });
+      }
+
+      const habitByNameEn = new Map(
+        (habits ?? []).map((habit) => [String(habit.name_en ?? ""), String(habit.id ?? "")]),
+      );
+
+      habitRows = uniqueBy(
+        payload.habitChecks.flatMap((check) => {
+          const habitId = habitByNameEn.get(check.habitNameEn);
+          if (!habitId) return [];
+          return [{
+            habit_id: habitId,
+            date: check.date,
+            completed: true,
+            value: null,
+            created_at: timestamp,
+          }];
+        }),
+        (row) => `${row.habit_id}:${row.date}`,
+      );
     }
-
-    const habitByNameEn = new Map(
-      (habits ?? []).map((habit) => [String(habit.name_en ?? ""), String(habit.id ?? "")]),
-    );
-
-    const habitRows = uniqueBy(
-      payload.habitChecks.flatMap((check) => {
-        const habitId = habitByNameEn.get(check.habitNameEn);
-        if (!habitId) return [];
-        return [{
-          habit_id: habitId,
-          date: check.date,
-          completed: true,
-          value: null,
-          created_at: timestamp,
-        }];
-      }),
-      (row) => `${row.habit_id}:${row.date}`,
-    );
 
     if (habitRows.length > 0) {
       const { error } = await supabase
