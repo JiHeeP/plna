@@ -27,6 +27,28 @@ export interface LocalDailyBackupPayload {
   habitChecks: LocalBackupHabitCheck[];
 }
 
+export interface LocalDailyDashboardDay {
+  date: string;
+  habitRate: number;
+  habitCompleted: number;
+  habitTotal: number;
+  todoCompleted: number;
+  todoTotal: number;
+  todos: Array<{
+    id: string;
+    text: string;
+    completed: boolean;
+  }>;
+  accomplishments: string;
+  went_well: string;
+  to_improve: string;
+}
+
+export interface LocalDailyDashboardData {
+  week: string;
+  dailyData: LocalDailyDashboardDay[];
+}
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -174,4 +196,100 @@ export function normalizeLocalDailyBackupPayload(input: unknown): LocalDailyBack
 
 export function hasLocalDailyBackupPayload(payload: LocalDailyBackupPayload) {
   return payload.journals.length > 0 || payload.todos.length > 0 || payload.habitChecks.length > 0;
+}
+
+function dateToWeek(date: string) {
+  const value = new Date(`${date}T00:00:00`);
+  const d = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+function weekMonday(week: string) {
+  const [yearStr, weekPart] = week.split("-W");
+  const year = Number(yearStr);
+  const weekNo = Number(weekPart);
+  const jan4 = new Date(year, 0, 4);
+  const dayOfWeek = jan4.getDay() || 7;
+  const monday = new Date(jan4);
+  monday.setDate(jan4.getDate() - dayOfWeek + 1 + (weekNo - 1) * 7);
+  return monday;
+}
+
+function toDateString(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function weekDates(week: string) {
+  const monday = weekMonday(week);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return toDateString(date);
+  });
+}
+
+function latestLocalBackupWeek(payload: LocalDailyBackupPayload) {
+  const weeks = [
+    ...payload.journals.map((journal) => dateToWeek(journal.date)),
+    ...payload.todos.map((todo) => dateToWeek(todo.date)),
+    ...payload.habitChecks.map((check) => dateToWeek(check.date)),
+  ];
+
+  return weeks.sort().at(-1) ?? null;
+}
+
+export function buildLocalDailyDashboardData(
+  payload: LocalDailyBackupPayload,
+  requestedWeek?: string | null,
+): LocalDailyDashboardData | null {
+  const week = requestedWeek || latestLocalBackupWeek(payload);
+  if (!week) return null;
+
+  const dates = weekDates(week);
+  const hasWeekData = dates.some((date) =>
+    payload.journals.some((journal) => journal.date === date) ||
+    payload.todos.some((todo) => todo.date === date) ||
+    payload.habitChecks.some((check) => check.date === date),
+  );
+
+  if (!hasWeekData) return null;
+
+  const weekHabitNames = new Set(
+    payload.habitChecks
+      .filter((check) => dates.includes(check.date))
+      .map((check) => check.habitNameEn),
+  );
+  const fallbackHabitTotal = weekHabitNames.size;
+
+  return {
+    week,
+    dailyData: dates.map((date) => {
+      const journal = payload.journals.find((entry) => entry.date === date);
+      const todos = payload.todos
+        .filter((todo) => todo.date === date)
+        .sort((left, right) => left.sort_order - right.sort_order);
+      const habitChecks = payload.habitChecks.filter((check) => check.date === date);
+      const habitTotal = fallbackHabitTotal || habitChecks.length;
+
+      return {
+        date,
+        habitRate: habitTotal > 0 ? Math.round((habitChecks.length / habitTotal) * 100) : 0,
+        habitCompleted: habitChecks.length,
+        habitTotal,
+        todoCompleted: todos.filter((todo) => todo.completed).length,
+        todoTotal: todos.length,
+        todos: todos.map((todo, index) => ({
+          id: todo.id ?? `local_todo_${date}_${index}`,
+          text: todo.text,
+          completed: todo.completed,
+        })),
+        accomplishments: journal?.accomplishments ?? "",
+        went_well: journal?.went_well ?? "",
+        to_improve: journal?.to_improve ?? "",
+      };
+    }),
+  };
 }

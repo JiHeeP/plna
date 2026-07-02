@@ -140,3 +140,29 @@
   - `daily_habits`는 소량 컬렉션이므로 한 번만 읽고 필터링
 - 새 코드 배포 후에도 Firestore quota 자체가 이미 소진된 상태라 production 응답은 계속 quota error다.
 - 남은 외부 상태: Firestore quota reset 또는 Firebase/GCP billing/quota 상향 이후 production API 재검증 필요.
+
+## 2026-07-02 추가 구현: quota/빈 최신 데이터 fallback
+
+- daily 기록 저장 API가 실패하면 브라우저 localStorage 백업을 확실히 남기도록 보강했다.
+  - `DailyTodoList`: create/update/delete/reorder 실패 시 `todos_YYYY-MM-DD`에 보존
+  - `HabitChecklist`, `WeeklyHabitGrid`: habit PATCH 실패 시 `habits_YYYY-MM-DD`에 보존
+  - `DailyJournalCard`: journal 저장 실패 후 이후 저장도 local fallback으로 지속
+- localStorage 백업이 변경되면 `plna:local-daily-backup-synced` 이벤트를 발생시켜 dashboard가 다시 읽을 수 있게 했다.
+- weekly dashboard는 API 실패 또는 Firestore 최신 주차가 local 백업보다 오래된 경우, local backup을 같은 `DashboardData` 형태로 변환해 표시한다.
+- local fallback은 server 데이터를 삭제하거나 덮어쓰지 않는다. 같은 날짜에 local 값이 있으면 화면 표시에서만 local 값을 우선한다.
+
+## 2026-07-02 검증
+
+- `npm test`: 통과
+- `npm run lint`: 통과
+- `npm run build`: 통과
+- `cd dashboard && npm run lint`: 통과
+- `cd dashboard && npm run build`: 통과
+- `npm run check:secrets`: 통과
+- `git diff --check`: 통과
+
+## 남은 한계
+
+- Firestore quota가 이미 소진된 상태에서는 production API read가 계속 500을 반환할 수 있다.
+- 이 변경은 그 상태에서도 브라우저 localStorage에 남은 daily 백업을 dashboard에 표시하는 fallback이다.
+- 실제 Firebase에 없는 2026-06-01 이후 데이터는 서버에서 새로 만들어낼 수 없고, 사용자가 기록했던 브라우저/기기/origin의 localStorage 백업이 있어야 복구 가능하다.

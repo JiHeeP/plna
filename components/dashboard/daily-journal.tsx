@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
+import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
 import type { DailyJournal } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -47,6 +48,14 @@ export function DailyJournalCard({ date }: { date?: string }) {
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
+  const saveLocal = useCallback(
+    (updatedForm: typeof form) => {
+      localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
+      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+    },
+    [targetDate],
+  );
+
   const loadJournal = useCallback(async () => {
     setLoading(true);
     const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
@@ -72,8 +81,12 @@ export function DailyJournalCard({ date }: { date?: string }) {
       setUseLocal(true);
       const saved = localStorage.getItem(`journal_${targetDate}`);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setForm(parsed);
+        try {
+          const parsed = JSON.parse(saved);
+          setForm(parsed);
+        } catch {
+          setForm(emptyForm);
+        }
       } else {
         setForm(emptyForm);
       }
@@ -110,7 +123,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
       setSaving(true);
 
       if (useLocal) {
-        localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
+        saveLocal(updatedForm);
         setSaving(false);
         setSaveStatus("saved");
         return;
@@ -130,14 +143,14 @@ export function DailyJournalCard({ date }: { date?: string }) {
         setSaveStatus("saved");
       } catch (err) {
         console.error("저널 저장 실패:", err);
-        // Supabase 실패 시 localStorage에 백업 저장
-        localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
+        setUseLocal(true);
+        saveLocal(updatedForm);
         setSaveStatus("error");
       } finally {
         setSaving(false);
       }
     },
-    [targetDate, useLocal]
+    [saveLocal, targetDate, useLocal]
   );
 
   const handleChange = (key: keyof typeof form, value: string) => {

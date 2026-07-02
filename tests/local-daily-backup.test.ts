@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   buildLocalDailyBackupPayloadFromEntries,
+  buildLocalDailyDashboardData,
   hasLocalDailyBackupPayload,
   normalizeLocalDailyBackupPayload,
 } from "../lib/local-daily-backup";
@@ -104,5 +105,56 @@ describe("local daily backup sync payload", () => {
         },
       ],
     });
+  });
+
+  it("builds a weekly dashboard fallback from local backup rows", () => {
+    const payload = normalizeLocalDailyBackupPayload({
+      journals: [
+        {
+          date: "2026-07-01",
+          accomplishments: "shipped dashboard fallback",
+          went_well: "caught quota failure",
+          to_improve: "reduce reads",
+        },
+      ],
+      todos: [
+        { id: "todo_2", date: "2026-07-01", text: "Second", completed: false, sort_order: 2 },
+        { id: "todo_1", date: "2026-07-01", text: "First", completed: true, sort_order: 1 },
+      ],
+      habitChecks: [
+        { date: "2026-07-01", habitNameEn: "read" },
+        { date: "2026-07-02", habitNameEn: "stretch" },
+      ],
+    });
+
+    const dashboard = buildLocalDailyDashboardData(payload);
+
+    assert.equal(dashboard?.week, "2026-W27");
+    assert.equal(dashboard?.dailyData.length, 7);
+
+    const wednesday = dashboard?.dailyData.find((day) => day.date === "2026-07-01");
+    assert.deepEqual(wednesday, {
+      date: "2026-07-01",
+      habitRate: 50,
+      habitCompleted: 1,
+      habitTotal: 2,
+      todoCompleted: 1,
+      todoTotal: 2,
+      todos: [
+        { id: "todo_1", text: "First", completed: true },
+        { id: "todo_2", text: "Second", completed: false },
+      ],
+      accomplishments: "shipped dashboard fallback",
+      went_well: "caught quota failure",
+      to_improve: "reduce reads",
+    });
+  });
+
+  it("returns null when the requested local backup week has no rows", () => {
+    const payload = normalizeLocalDailyBackupPayload({
+      journals: [{ date: "2026-07-01", accomplishments: "only W27" }],
+    });
+
+    assert.equal(buildLocalDailyDashboardData(payload, "2026-W26"), null);
   });
 });

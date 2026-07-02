@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
+import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
 import type { DailyTodo } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -34,6 +35,16 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
+  const readLocalTodos = useCallback(() => {
+    const saved = localStorage.getItem(`todos_${targetDate}`);
+    if (!saved) return [];
+    try {
+      return JSON.parse(saved) as DailyTodo[];
+    } catch {
+      return [];
+    }
+  }, [targetDate]);
+
   const loadTodos = useCallback(async () => {
     try {
       const response = await fetch(`/api/todos?date=${encodeURIComponent(targetDate)}`, {
@@ -46,12 +57,11 @@ export function DailyTodoList({ date }: { date?: string }) {
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      const saved = localStorage.getItem(`todos_${targetDate}`);
-      if (saved) setTodos(JSON.parse(saved));
+      setTodos(readLocalTodos());
     } finally {
       setLoading(false);
     }
-  }, [targetDate]);
+  }, [readLocalTodos, targetDate]);
 
   useEffect(() => {
     loadTodos();
@@ -59,19 +69,32 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const saveLocal = (updated: DailyTodo[]) => {
     localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+  };
+
+  const switchToLocal = (updated: DailyTodo[]) => {
+    setUseLocal(true);
+    saveLocal(updated);
   };
 
   const persistOrder = async (ordered: DailyTodo[]) => {
     if (useLocal) return;
-    await Promise.all(
-      ordered.map((t, idx) =>
-        fetch("/api/todos", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: t.id, sort_order: idx }),
-        }),
-      ),
-    );
+    try {
+      const responses = await Promise.all(
+        ordered.map((t, idx) =>
+          fetch("/api/todos", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: t.id, sort_order: idx }),
+          }),
+        ),
+      );
+      if (responses.some((response) => !response.ok)) {
+        switchToLocal(ordered);
+      }
+    } catch {
+      switchToLocal(ordered);
+    }
   };
 
   const addTodo = async () => {
@@ -94,16 +117,32 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    const response = await fetch("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: targetDate, text, sort_order: todos.length }),
-    });
+    const localTodo: DailyTodo = {
+      id: `local_${Date.now()}`,
+      date: targetDate,
+      text,
+      completed: false,
+      sort_order: todos.length,
+      created_at: new Date().toISOString(),
+    };
 
-    if (!response.ok) return;
-    const data = (await response.json()) as DailyTodo;
-    setTodos((prev) => [...prev, data]);
-    setNewText("");
+    try {
+      const response = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: targetDate, text, sort_order: todos.length }),
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = (await response.json()) as DailyTodo;
+      setTodos((prev) => [...prev, data]);
+    } catch {
+      const updated = [...todos, localTodo];
+      setTodos(updated);
+      switchToLocal(updated);
+    } finally {
+      setNewText("");
+    }
   };
 
   const toggleTodo = async (id: string) => {
@@ -118,11 +157,16 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    await fetch("/api/todos", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, completed: !todo.completed }),
-    });
+    try {
+      const response = await fetch("/api/todos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, completed: !todo.completed }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch {
+      switchToLocal(updated);
+    }
   };
 
   const startEdit = (todo: DailyTodo) => {
@@ -143,11 +187,16 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    await fetch("/api/todos", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, text }),
-    });
+    try {
+      const response = await fetch("/api/todos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, text }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch {
+      switchToLocal(updated);
+    }
   };
 
   const deleteTodo = async (id: string) => {
@@ -159,10 +208,15 @@ export function DailyTodoList({ date }: { date?: string }) {
       return;
     }
 
-    await fetch(`/api/todos?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    await persistOrder(updated);
+    try {
+      const response = await fetch(`/api/todos?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await persistOrder(updated);
+    } catch {
+      switchToLocal(updated);
+    }
   };
 
   const completedCount = todos.filter((t) => t.completed).length;

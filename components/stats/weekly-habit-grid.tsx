@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEFAULT_HABITS } from "@/lib/constants";
+import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
 import type { DailyHabit, HabitLog } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -76,7 +77,12 @@ export function WeeklyHabitGrid() {
         const dateStr = toDateString(d);
         const saved = localStorage.getItem(`habits_${dateStr}`);
         if (saved) {
-          const checked: Record<string, boolean> = JSON.parse(saved);
+          let checked: Record<string, boolean> = {};
+          try {
+            checked = JSON.parse(saved);
+          } catch {
+            checked = {};
+          }
           localHabits.forEach((habit) => {
             if (checked[habit.name_en]) {
               logs.push({
@@ -107,6 +113,25 @@ export function WeeklyHabitGrid() {
     [weekLogs]
   );
 
+  const saveLocalHabitCheck = (habitNameEn: string, date: string, completed: boolean) => {
+    const saved = localStorage.getItem(`habits_${date}`);
+    let localChecked: Record<string, boolean> = {};
+    if (saved) {
+      try {
+        localChecked = JSON.parse(saved);
+      } catch {
+        localChecked = {};
+      }
+    }
+    if (completed) {
+      localChecked[habitNameEn] = true;
+    } else {
+      delete localChecked[habitNameEn];
+    }
+    localStorage.setItem(`habits_${date}`, JSON.stringify(localChecked));
+    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+  };
+
   const toggleHabit = async (habit: DailyHabit, date: string) => {
     const completed = isCompleted(habit.id, date);
     const newCompleted = !completed;
@@ -130,28 +155,25 @@ export function WeeklyHabitGrid() {
     }
 
     if (useLocal) {
-      const saved = localStorage.getItem(`habits_${date}`);
-      const localChecked: Record<string, boolean> = saved
-        ? JSON.parse(saved)
-        : {};
-      if (newCompleted) {
-        localChecked[habit.name_en] = true;
-      } else {
-        delete localChecked[habit.name_en];
-      }
-      localStorage.setItem(`habits_${date}`, JSON.stringify(localChecked));
+      saveLocalHabitCheck(habit.name_en, date, newCompleted);
       return;
     }
 
-    await fetch("/api/habits", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        habit_id: habit.id,
-        date,
-        completed: newCompleted,
-      }),
-    });
+    try {
+      const response = await fetch("/api/habits", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          habit_id: habit.id,
+          date,
+          completed: newCompleted,
+        }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch {
+      setUseLocal(true);
+      saveLocalHabitCheck(habit.name_en, date, newCompleted);
+    }
   };
 
   const weekTotal = habits.length * 7;
