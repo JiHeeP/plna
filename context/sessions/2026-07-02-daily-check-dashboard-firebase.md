@@ -291,6 +291,14 @@
 - `warnings` 응답도 remote error cooldown 상태로 저장해 local backup이 있는 브라우저에서는 10분 동안 불필요한 Firebase 재시도를 줄인다.
 - 로컬 검증 결과, 현재 Firestore quota 초과 상태에서도 `/api/weekly-dashboard`는 200을 반환하고 `warnings`에 quota 실패 source를 포함했다.
 
+## 2026-07-02 추가 점검: Firestore plan/quota
+
+- Firebase CLI로 `plna-60b1d`의 Firestore database를 확인했다.
+- `projects/plna-60b1d/databases/(default)`는 `freeTier: true` 상태다.
+- 공식 Firestore 문서 기준 free quota는 daily reset이며, Standard edition free tier의 document reads는 50,000/day다.
+- 따라서 현재 `RESOURCE_EXHAUSTED: Quota exceeded.`는 코드 배포 실패가 아니라 free tier read quota 소진 상태로 판단한다.
+- 실제 이번주/지난주 Firebase 문서 존재 여부는 quota reset 또는 billing/quota 상향 이후에만 재검증 가능하다.
+
 ## 2026-07-02 추가 검증: dashboard 기본 주차
 
 - `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.
