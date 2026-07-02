@@ -130,3 +130,13 @@
 - `public/daily-backup-recovery.js`를 추가했다.
   - 예전 Vercel URL, localhost, 모바일 브라우저 등 다른 origin에서 실행해도 `https://plna.vercel.app/api/local-daily-backup/sync`로 백업을 보낼 수 있다.
   - 동기화 개수만 alert로 표시하고, 기록 내용은 로그로 출력하지 않는다.
+
+## 2026-07-02 추가 점검: Firestore quota
+
+- production `/api/weekly-dashboard`가 `8 RESOURCE_EXHAUSTED: Quota exceeded.`를 반환했다.
+- 원인 완화 조치로 weekly dashboard API를 Supabase 호환 레이어의 전체 컬렉션 스캔 방식에서 직접 Firestore query 방식으로 교체했다.
+  - 최신 주차 확인: 각 컬렉션 `orderBy(...).limit(1)`
+  - 주간 데이터 확인: `date` range query / `week` equality query
+  - `daily_habits`는 소량 컬렉션이므로 한 번만 읽고 필터링
+- 새 코드 배포 후에도 Firestore quota 자체가 이미 소진된 상태라 production 응답은 계속 quota error다.
+- 남은 외부 상태: Firestore quota reset 또는 Firebase/GCP billing/quota 상향 이후 production API 재검증 필요.
