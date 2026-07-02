@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/firebase/server";
+import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -123,8 +124,30 @@ export async function PATCH(request: NextRequest) {
     );
 
     if (error) {
+      await recordDailyWriteAudit({
+        target: "habit_log",
+        action: "upsert",
+        status: "error",
+        date,
+        recordId: String(habit_id),
+        errorMessage: error.message,
+        metadata: {
+          completed: true,
+        },
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await recordDailyWriteAudit({
+      target: "habit_log",
+      action: "upsert",
+      status: "success",
+      date,
+      recordId: String(habit_id),
+      metadata: {
+        completed: true,
+      },
+    });
   } else {
     const { error } = await supabase
       .from("habit_logs")
@@ -133,8 +156,30 @@ export async function PATCH(request: NextRequest) {
       .eq("date", date);
 
     if (error) {
+      await recordDailyWriteAudit({
+        target: "habit_log",
+        action: "delete",
+        status: "error",
+        date,
+        recordId: String(habit_id),
+        errorMessage: error.message,
+        metadata: {
+          completed: false,
+        },
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await recordDailyWriteAudit({
+      target: "habit_log",
+      action: "delete",
+      status: "success",
+      date,
+      recordId: String(habit_id),
+      metadata: {
+        completed: false,
+      },
+    });
   }
 
   return NextResponse.json({ success: true });

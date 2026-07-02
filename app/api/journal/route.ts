@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/firebase/server";
+import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 
 // GET /api/journal?date=2026-02-26
 export async function GET(request: NextRequest) {
@@ -45,8 +46,33 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
+    await recordDailyWriteAudit({
+      target: "journal",
+      action: "upsert",
+      status: "error",
+      date: targetDate,
+      errorMessage: error.message,
+      metadata: {
+        has_accomplishments: Boolean(accomplishments),
+        has_went_well: Boolean(went_well),
+        has_to_improve: Boolean(to_improve),
+      },
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await recordDailyWriteAudit({
+    target: "journal",
+    action: "upsert",
+    status: "success",
+    date: targetDate,
+    recordId: String(data?.id ?? ""),
+    metadata: {
+      has_accomplishments: Boolean(accomplishments),
+      has_went_well: Boolean(went_well),
+      has_to_improve: Boolean(to_improve),
+    },
+  });
 
   return NextResponse.json(data);
 }

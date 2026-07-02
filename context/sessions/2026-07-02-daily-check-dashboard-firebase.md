@@ -306,6 +306,23 @@
 - quota error 응답은 cache하지 않고 기존 2분 quota cooldown으로 보호한다.
 - 응답 헤더 `x-plna-dashboard-cache`로 `hit`, `miss`, `quota-error`, `quota-cooldown` 상태를 확인할 수 있게 했다.
 
+## 2026-07-02 추가 점검: 저장 API 과거 호출 흔적
+
+- Vercel runtime logs에서 `/api/journal`, `/api/todos`, `/api/habits` 호출 흔적을 확인하려 했으나 Vercel Runtime Logs 권한이 `403 Forbidden`으로 막혔다.
+- 따라서 현재 접근 가능한 증거만으로는 이번주/지난주 저장 API가 실제로 성공했는지 과거 로그 기준으로 확정할 수 없다.
+
+## 2026-07-02 추가 구현: daily write audit
+
+- 이후 같은 문제가 생겼을 때 저장 시도/성공/실패를 추적할 수 있도록 `daily_write_audit` 기록을 추가했다.
+- 대상:
+  - `/api/journal` POST
+  - `/api/todos` POST/PATCH/DELETE
+  - `/api/habits` PATCH
+  - `/api/local-daily-backup/sync` POST
+- 감사 로그는 본문을 저장하지 않는다.
+  - journal/todo 텍스트 내용은 기록하지 않고, 날짜/대상/action/status/error/source/count 같은 메타데이터만 기록한다.
+- `components/dashboard/daily-todo.tsx`의 todo update/delete 요청에 `date`를 포함해 날짜별 감사가 가능하게 했다.
+
 ## 2026-07-02 추가 검증: dashboard 기본 주차
 
 - `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.

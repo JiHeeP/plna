@@ -98,7 +98,7 @@ export function DailyTodoList({ date }: { date?: string }) {
           fetch("/api/todos", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: t.id, sort_order: idx }),
+            body: JSON.stringify({ id: t.id, date: targetDate, sort_order: idx }),
           }),
         ),
       );
@@ -179,7 +179,7 @@ export function DailyTodoList({ date }: { date?: string }) {
       const response = await fetch("/api/todos", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, completed: !todo.completed }),
+        body: JSON.stringify({ id, date: targetDate, completed: !todo.completed }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       saveLocal(updated);
@@ -211,7 +211,7 @@ export function DailyTodoList({ date }: { date?: string }) {
       const response = await fetch("/api/todos", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, text }),
+        body: JSON.stringify({ id, date: targetDate, text }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       saveLocal(updated);
@@ -231,7 +231,7 @@ export function DailyTodoList({ date }: { date?: string }) {
     }
 
     try {
-      const response = await fetch(`/api/todos?id=${encodeURIComponent(id)}`, {
+      const response = await fetch(`/api/todos?id=${encodeURIComponent(id)}&date=${encodeURIComponent(targetDate)}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);

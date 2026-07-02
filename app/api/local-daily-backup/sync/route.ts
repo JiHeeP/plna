@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 import { createClient } from "@/lib/firebase/server";
 import {
   hasLocalDailyBackupPayload,
@@ -87,6 +88,18 @@ export async function POST(request: NextRequest) {
         .upsert(journalRows, { onConflict: "date" });
 
       if (error) {
+        await recordDailyWriteAudit({
+          target: "local_backup_sync",
+          action: "sync",
+          status: "error",
+          errorMessage: error.message,
+          metadata: {
+            source: "daily_journals",
+            journals: journalRows.length,
+            todos: payload.todos.length,
+            habit_checks: payload.habitChecks.length,
+          },
+        });
         return json({ ok: false, source: "daily_journals", error: error.message }, { status: 500 });
       }
     }
@@ -112,6 +125,18 @@ export async function POST(request: NextRequest) {
         .upsert(todoRows, { onConflict: "id" });
 
       if (error) {
+        await recordDailyWriteAudit({
+          target: "local_backup_sync",
+          action: "sync",
+          status: "error",
+          errorMessage: error.message,
+          metadata: {
+            source: "daily_todos",
+            journals: journalRows.length,
+            todos: todoRows.length,
+            habit_checks: payload.habitChecks.length,
+          },
+        });
         return json({ ok: false, source: "daily_todos", error: error.message }, { status: 500 });
       }
     }
@@ -131,6 +156,18 @@ export async function POST(request: NextRequest) {
         .eq("is_active", true);
 
       if (habitsError) {
+        await recordDailyWriteAudit({
+          target: "local_backup_sync",
+          action: "sync",
+          status: "error",
+          errorMessage: habitsError.message,
+          metadata: {
+            source: "daily_habits",
+            journals: journalRows.length,
+            todos: todoRows.length,
+            habit_checks: payload.habitChecks.length,
+          },
+        });
         return json({ ok: false, source: "daily_habits", error: habitsError.message }, { status: 500 });
       }
 
@@ -160,9 +197,34 @@ export async function POST(request: NextRequest) {
         .upsert(habitRows, { onConflict: "habit_id,date" });
 
       if (error) {
+        await recordDailyWriteAudit({
+          target: "local_backup_sync",
+          action: "sync",
+          status: "error",
+          errorMessage: error.message,
+          metadata: {
+            source: "habit_logs",
+            journals: journalRows.length,
+            todos: todoRows.length,
+            habit_logs: habitRows.length,
+            skipped_habit_checks: payload.habitChecks.length - habitRows.length,
+          },
+        });
         return json({ ok: false, source: "habit_logs", error: error.message }, { status: 500 });
       }
     }
+
+    await recordDailyWriteAudit({
+      target: "local_backup_sync",
+      action: "sync",
+      status: "success",
+      metadata: {
+        journals: journalRows.length,
+        todos: todoRows.length,
+        habit_logs: habitRows.length,
+        skipped_habit_checks: payload.habitChecks.length - habitRows.length,
+      },
+    });
 
     return json({
       ok: true,
