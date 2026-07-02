@@ -451,3 +451,43 @@
 - `npm run lint`: 통과
 - `npm run build`: 통과
 - `cd dashboard && npm run lint && npm run build`: 통과
+
+## 2026-07-02 추가 구현: Firestore quota 실측 도구
+
+- `npm run check:firestore-usage`를 추가했다.
+- Firebase CLI 로그인 토큰으로 Google Service Usage API와 Cloud Monitoring API를 조회한다.
+- 출력은 JSON이며 access token이나 서비스 계정 비밀값을 출력하지 않는다.
+- 확인 항목:
+  - Firestore daily read/write/delete quota
+  - 최근 N시간 document read/write 사용량
+  - 최근 1시간 read 사용량
+  - read가 몰린 상위 시간대
+- 2026-07-02 22:07 KST 실행 결과:
+  - read quota: 50,000/day
+  - document reads: 50,226
+  - document writes: 25
+  - last hour reads: 0
+  - read hotspots:
+    - 2026-07-02T10:00:00.000Z: 22,670
+    - 2026-07-02T11:00:00.000Z: 27,556
+- 결론:
+  - 현재 장애 원인은 Firestore read quota 소진으로 확정했다.
+  - 최근 1시간 read는 0이므로 dashboard cooldown/cache/read 절감 조치 이후 추가 소모는 멈춘 상태다.
+  - quota가 reset되거나 billing/quota 상향 전까지는 실제 특정 날짜 문서 존재 여부를 직접 read로 확정할 수 없다.
+
+## 2026-07-02 추가 검증: production API quota 상태
+
+- `https://plna.vercel.app/api/weekly-dashboard`:
+  - HTTP 200
+  - `x-plna-dashboard-cache: quota-error`
+  - warnings:
+    - `daily_journals`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+    - `daily_todos`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+    - `habit_logs`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+    - `weekly_goals`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+    - `weekly_reflections`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+    - `daily_habits`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- `https://plna.vercel.app/api/daily-write-audit?start=2026-06-22&end=2026-07-05&limit=20`:
+  - HTTP 500
+  - `source: daily_write_audit`
+  - `8 RESOURCE_EXHAUSTED: Quota exceeded.`
