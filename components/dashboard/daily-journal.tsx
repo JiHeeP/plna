@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
-import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
+import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
 import type { DailyJournal } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -51,7 +51,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const saveLocal = useCallback(
     (updatedForm: typeof form) => {
       localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
-      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
     },
     [targetDate],
   );

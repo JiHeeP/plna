@@ -1,3 +1,4 @@
+export const LOCAL_DAILY_BACKUP_CHANGED_EVENT = "plna:local-daily-backup-changed";
 export const LOCAL_DAILY_BACKUP_SYNC_EVENT = "plna:local-daily-backup-synced";
 
 export interface LocalBackupJournal {
@@ -196,6 +197,22 @@ export function normalizeLocalDailyBackupPayload(input: unknown): LocalDailyBack
 
 export function hasLocalDailyBackupPayload(payload: LocalDailyBackupPayload) {
   return payload.journals.length > 0 || payload.todos.length > 0 || payload.habitChecks.length > 0;
+}
+
+export function createLocalDailyBackupPayloadSignature(payload: LocalDailyBackupPayload) {
+  return JSON.stringify({
+    journals: [...payload.journals].sort((left, right) => left.date.localeCompare(right.date)),
+    todos: [...payload.todos].sort((left, right) =>
+      left.date.localeCompare(right.date) ||
+      left.sort_order - right.sort_order ||
+      left.text.localeCompare(right.text) ||
+      String(left.id ?? "").localeCompare(String(right.id ?? "")),
+    ),
+    habitChecks: [...payload.habitChecks].sort((left, right) =>
+      left.date.localeCompare(right.date) ||
+      left.habitNameEn.localeCompare(right.habitNameEn),
+    ),
+  });
 }
 
 function dateToWeek(date: string) {

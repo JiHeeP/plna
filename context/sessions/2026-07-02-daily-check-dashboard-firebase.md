@@ -166,3 +166,22 @@
 - Firestore quota가 이미 소진된 상태에서는 production API read가 계속 500을 반환할 수 있다.
 - 이 변경은 그 상태에서도 브라우저 localStorage에 남은 daily 백업을 dashboard에 표시하는 fallback이다.
 - 실제 Firebase에 없는 2026-06-01 이후 데이터는 서버에서 새로 만들어낼 수 없고, 사용자가 기록했던 브라우저/기기/origin의 localStorage 백업이 있어야 복구 가능하다.
+
+## 2026-07-02 추가 구현: local backup sync 안정화
+
+- local backup 변경 이벤트와 sync 완료 이벤트를 분리했다.
+  - 변경 이벤트: `plna:local-daily-backup-changed`
+  - 완료 이벤트: `plna:local-daily-backup-synced`
+- daily todo/journal/habit 및 weekly habit grid가 localStorage 백업을 저장하면 변경 이벤트를 발생시킨다.
+- `LocalDailyBackupSync`는 변경 이벤트를 들으면 sync를 재시도하되, 같은 payload는 성공 후 다시 전송하지 않는다.
+- 같은 payload sync 실패는 10분 backoff를 둔다. Firestore quota 초과 상태에서 같은 백업을 매 페이지 로드마다 반복 전송하는 것을 방지하기 위함이다.
+- payload signature는 localStorage key iteration 순서와 무관하게 안정적으로 계산하도록 테스트를 추가했다.
+
+## 2026-07-02 추가 검증
+
+- production `/api/weekly-dashboard`: 500, `source: daily_todos`, `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- production `/api/weekly-dashboard?week=2026-W22`: 500, `source: habit_logs`, `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- 이 Mac의 Chrome Local Storage/IndexedDB/Session Storage 파일에서 `journal_YYYY-MM-DD`, `todos_YYYY-MM-DD`, `habits_YYYY-MM-DD` 키는 발견되지 않았다.
+- local browser smoke:
+  - API 500 모킹 상태에서 `2026-07-01` local backup이 weekly dashboard `6/29 ~ 7/5`에 표시됨
+  - sync 성공 후 같은 payload로 reload해도 `/api/local-daily-backup/sync` 재호출 없음

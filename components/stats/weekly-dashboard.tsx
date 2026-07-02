@@ -13,6 +13,7 @@ import { PILLAR_LABELS } from "@/lib/constants";
 import {
   buildLocalDailyBackupPayloadFromEntries,
   buildLocalDailyDashboardData,
+  LOCAL_DAILY_BACKUP_CHANGED_EVENT,
   LOCAL_DAILY_BACKUP_SYNC_EVENT,
   type LocalDailyDashboardData,
 } from "@/lib/local-daily-backup";
@@ -204,8 +205,12 @@ export function WeeklyDashboard() {
       setReloadToken((value) => value + 1);
     };
 
+    window.addEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, handleLocalBackupSynced);
     window.addEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
-    return () => window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+    return () => {
+      window.removeEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, handleLocalBackupSynced);
+      window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+    };
   }, []);
 
   useEffect(() => {

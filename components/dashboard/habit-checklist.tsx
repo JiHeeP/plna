@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DEFAULT_HABITS } from "@/lib/constants";
-import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
+import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
 import type { DailyHabit, HabitLog, HabitWithLog } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -113,7 +113,7 @@ export function HabitChecklist({ date }: { date?: string }) {
       delete localChecked[habitNameEn];
     }
     localStorage.setItem(`habits_${targetDate}`, JSON.stringify(localChecked));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
   };
 
   const toggleHabit = async (habit: DailyHabit) => {

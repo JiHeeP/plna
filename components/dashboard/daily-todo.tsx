@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
-import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
+import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
 import type { DailyTodo } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -69,7 +69,7 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const saveLocal = (updated: DailyTodo[]) => {
     localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
   };
 
   const switchToLocal = (updated: DailyTodo[]) => {

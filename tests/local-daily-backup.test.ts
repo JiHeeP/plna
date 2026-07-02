@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   buildLocalDailyBackupPayloadFromEntries,
   buildLocalDailyDashboardData,
+  createLocalDailyBackupPayloadSignature,
   hasLocalDailyBackupPayload,
   normalizeLocalDailyBackupPayload,
 } from "../lib/local-daily-backup";
@@ -156,5 +157,23 @@ describe("local daily backup sync payload", () => {
     });
 
     assert.equal(buildLocalDailyDashboardData(payload, "2026-W26"), null);
+  });
+
+  it("creates a stable sync signature regardless of localStorage iteration order", () => {
+    const first = buildLocalDailyBackupPayloadFromEntries([
+      ["todos_2026-07-02", JSON.stringify([{ id: "b", text: "B", sort_order: 2 }])],
+      ["journal_2026-07-01", JSON.stringify({ went_well: "A" })],
+      ["habits_2026-07-01", JSON.stringify({ stretch: true, read: true })],
+    ]);
+    const second = buildLocalDailyBackupPayloadFromEntries([
+      ["habits_2026-07-01", JSON.stringify({ read: true, stretch: true })],
+      ["journal_2026-07-01", JSON.stringify({ went_well: "A" })],
+      ["todos_2026-07-02", JSON.stringify([{ id: "b", text: "B", sort_order: 2 }])],
+    ]);
+
+    assert.equal(
+      createLocalDailyBackupPayloadSignature(first),
+      createLocalDailyBackupPayloadSignature(second),
+    );
   });
 });

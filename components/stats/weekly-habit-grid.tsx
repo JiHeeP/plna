@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEFAULT_HABITS } from "@/lib/constants";
-import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
+import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
 import type { DailyHabit, HabitLog } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -129,7 +129,7 @@ export function WeeklyHabitGrid() {
       delete localChecked[habitNameEn];
     }
     localStorage.setItem(`habits_${date}`, JSON.stringify(localChecked));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_SYNC_EVENT));
+    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
   };
 
   const toggleHabit = async (habit: DailyHabit, date: string) => {
