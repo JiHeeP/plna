@@ -11,6 +11,13 @@ import {
 } from "@/lib/utils";
 import { PILLAR_LABELS } from "@/lib/constants";
 import {
+  buildLocalDailyBackupPayloadFromEntries,
+  buildLocalDailyDashboardData,
+  LOCAL_DAILY_BACKUP_CHANGED_EVENT,
+  LOCAL_DAILY_BACKUP_SYNC_EVENT,
+  type LocalDailyDashboardData,
+} from "@/lib/local-daily-backup";
+import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -20,6 +27,8 @@ import {
 import type { WeeklyGoal } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const REMOTE_ERROR_STATE_KEY = "plna_weekly_dashboard_remote_error_state";
+const REMOTE_RETRY_MS = 10 * 60 * 1000;
 
 interface DailyTodoSummary {
   id: string;
@@ -53,10 +62,105 @@ interface DashboardLoadError {
   status?: number;
 }
 
+interface RemoteDashboardErrorState extends DashboardLoadError {
+  failed_at?: string;
+}
+
 function habitRateColor(rate: number) {
   if (rate >= 70) return "text-green-600";
   if (rate >= 40) return "text-amber-600";
   return "text-red-500";
+}
+
+function readLocalDashboardData(week: string | null): LocalDailyDashboardData | null {
+  try {
+    const payload = buildLocalDailyBackupPayloadFromEntries(
+      Array.from({ length: localStorage.length }, (_, index) => {
+        const key = localStorage.key(index) ?? "";
+        return [key, localStorage.getItem(key) ?? ""] as [string, string];
+      }),
+    );
+    return buildLocalDailyDashboardData(payload, week);
+  } catch {
+    return null;
+  }
+}
+
+function readRemoteErrorState(): RemoteDashboardErrorState | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(REMOTE_ERROR_STATE_KEY) ?? "null");
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRemoteErrorState(error: DashboardLoadError) {
+  localStorage.setItem(
+    REMOTE_ERROR_STATE_KEY,
+    JSON.stringify({
+      ...error,
+      failed_at: new Date().toISOString(),
+    }),
+  );
+}
+
+function clearRemoteErrorState() {
+  localStorage.removeItem(REMOTE_ERROR_STATE_KEY);
+}
+
+function isRemoteRetryCoolingDown(state: RemoteDashboardErrorState | null) {
+  if (!state?.failed_at) return false;
+  const failedAt = Date.parse(state.failed_at);
+  return Number.isFinite(failedAt) && Date.now() - failedAt < REMOTE_RETRY_MS;
+}
+
+function localToDashboardData(local: LocalDailyDashboardData): DashboardData {
+  return {
+    week: local.week,
+    dailyData: local.dailyData,
+    weeklyGoals: [],
+    reflection: null,
+  };
+}
+
+function hasLocalDayData(day: DailyData) {
+  return day.habitTotal > 0 ||
+    day.todoTotal > 0 ||
+    Boolean(day.accomplishments || day.went_well || day.to_improve);
+}
+
+function mergeDashboardData(
+  remote: DashboardData,
+  local: LocalDailyDashboardData | null,
+  preferLocalWeek: boolean,
+): DashboardData {
+  if (!local) return remote;
+
+  if (local.week !== remote.week) {
+    return preferLocalWeek && local.week > remote.week ? localToDashboardData(local) : remote;
+  }
+
+  return {
+    ...remote,
+    dailyData: remote.dailyData.map((remoteDay) => {
+      const localDay = local.dailyData.find((day) => day.date === remoteDay.date);
+      if (!localDay || !hasLocalDayData(localDay)) return remoteDay;
+
+      return {
+        ...remoteDay,
+        habitRate: localDay.habitTotal > 0 ? localDay.habitRate : remoteDay.habitRate,
+        habitCompleted: localDay.habitTotal > 0 ? localDay.habitCompleted : remoteDay.habitCompleted,
+        habitTotal: localDay.habitTotal > 0 ? localDay.habitTotal : remoteDay.habitTotal,
+        todoCompleted: localDay.todoTotal > 0 ? localDay.todoCompleted : remoteDay.todoCompleted,
+        todoTotal: localDay.todoTotal > 0 ? localDay.todoTotal : remoteDay.todoTotal,
+        todos: localDay.todoTotal > 0 ? localDay.todos : remoteDay.todos,
+        accomplishments: localDay.accomplishments || remoteDay.accomplishments,
+        went_well: localDay.went_well || remoteDay.went_well,
+        to_improve: localDay.to_improve || remoteDay.to_improve,
+      };
+    }),
+  };
 }
 
 export function WeeklyDashboard() {
@@ -64,6 +168,7 @@ export function WeeklyDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadError, setLoadError] = useState<DashboardLoadError | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [reflectionForm, setReflectionForm] = useState({
     went_well: "",
     to_improve: "",
@@ -75,22 +180,49 @@ export function WeeklyDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const localDashboardData = readLocalDashboardData(week);
+    const remoteErrorState = readRemoteErrorState();
+
+    if (localDashboardData && isRemoteRetryCoolingDown(remoteErrorState)) {
+      const dashboardData = localToDashboardData(localDashboardData);
+      setLoadError({
+        message: remoteErrorState?.message ?? "원격 대시보드 재시도 대기 중",
+        source: remoteErrorState?.source,
+        status: remoteErrorState?.status,
+      });
+      if (dashboardData.week !== week) setWeek(dashboardData.week);
+      setData(dashboardData);
+      setReflectionForm({ went_well: "", to_improve: "" });
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(week ? `/api/weekly-dashboard?week=${week}` : "/api/weekly-dashboard", {
         cache: "no-store",
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setData(null);
-        setLoadError({
+        const error = {
           message: typeof json?.error === "string" ? json.error : `HTTP ${res.status}`,
           source: typeof json?.source === "string" ? json.source : undefined,
           status: res.status,
-        });
+        };
+        setLoadError(error);
+        saveRemoteErrorState(error);
+        if (localDashboardData) {
+          const dashboardData = localToDashboardData(localDashboardData);
+          if (dashboardData.week !== week) setWeek(dashboardData.week);
+          setData(dashboardData);
+          setReflectionForm({ went_well: "", to_improve: "" });
+        } else {
+          setData(null);
+        }
         return;
       }
       setLoadError(null);
-      const dashboardData = json as DashboardData;
+      clearRemoteErrorState();
+      const dashboardData = mergeDashboardData(json as DashboardData, localDashboardData, !week);
       if (dashboardData.week !== week) setWeek(dashboardData.week);
       setData(dashboardData);
       setReflectionForm({
@@ -98,10 +230,19 @@ export function WeeklyDashboard() {
         to_improve: dashboardData.reflection?.to_improve ?? "",
       });
     } catch (error) {
-      setData(null);
-      setLoadError({
+      const dashboardError = {
         message: error instanceof Error ? error.message : "대시보드 데이터를 불러오지 못했습니다",
-      });
+      };
+      setLoadError(dashboardError);
+      saveRemoteErrorState(dashboardError);
+      if (localDashboardData) {
+        const dashboardData = localToDashboardData(localDashboardData);
+        if (dashboardData.week !== week) setWeek(dashboardData.week);
+        setData(dashboardData);
+        setReflectionForm({ went_well: "", to_improve: "" });
+      } else {
+        setData(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -111,7 +252,22 @@ export function WeeklyDashboard() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus("idle");
     load();
-  }, [load]);
+  }, [load, reloadToken]);
+
+  useEffect(() => {
+    const handleLocalBackupSynced = () => {
+      setWeek(null);
+      setData(null);
+      setReloadToken((value) => value + 1);
+    };
+
+    window.addEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, handleLocalBackupSynced);
+    window.addEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+    return () => {
+      window.removeEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, handleLocalBackupSynced);
+      window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -211,6 +367,9 @@ export function WeeklyDashboard() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">주간 대시보드</h2>
         <div className="flex items-center gap-1">
+          {loadError && (
+            <span className="text-xs text-amber-600 mr-1">로컬 백업 표시 중</span>
+          )}
           {saving && (
             <span className="text-xs text-muted-foreground mr-1">저장 중...</span>
           )}

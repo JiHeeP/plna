@@ -292,3 +292,34 @@
   - 서버가 빈 배열/null을 반환하면 기존에는 브라우저에 남은 백업이 있어도 빈 화면으로 보일 수 있었다.
   - 사용자가 todo를 전부 지우거나 journal 내용을 비운 상태도 최신 의도일 수 있으므로, local key가 존재하면 빈 값도 local 기준으로 인정한다.
 - remote 데이터만 있고 local backup이 없는 경우에는 remote 데이터를 local backup으로 캐시해 이후 dashboard fallback이 읽을 수 있게 했다.
+
+## 2026-07-02 추가 점검: 사용자의 "Firebase에는 많은데 왜 대시보드만 비는가" 질문
+
+- production `https://plna.vercel.app/api/weekly-dashboard`를 다시 호출했다.
+  - 결과: `daily_journals` source에서 `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- 로컬 Admin SDK 조회도 `.env.local`의 `GOOGLE_APPLICATION_CREDENTIALS` 기준으로 다시 시도했다.
+  - `daily_journals`, `daily_todos`, `habit_logs`, `weekly_goals`, `weekly_reflections` 모두 `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- 따라서 현재 시점에는 Firestore 실제 최신 날짜를 새로 읽어 재확인할 수 없다.
+- 이전에 quota가 막히기 전 성공한 실측 기준으로는 `plna-60b1d`의 daily 계열 최신 날짜가 모두 `2026-05-31`이었다.
+- 이 상태에서 대시보드가 빈 화면으로 보이는 직접 원인은 원격 read 실패 시 standalone `dashboard/` 앱이 local backup fallback을 사용하지 않던 점이다.
+
+## 2026-07-02 추가 구현: standalone dashboard local fallback
+
+- `dashboard/components/weekly-dashboard.tsx`에 루트 `/weekly-dashboard`와 같은 local backup fallback을 적용했다.
+  - localStorage의 `journal_YYYY-MM-DD`, `todos_YYYY-MM-DD`, `habits_YYYY-MM-DD`를 읽어 주간 표로 변환한다.
+  - Firebase 원격 API가 quota/error로 실패하면 local backup이 있는 주차를 표시한다.
+  - 최근 원격 실패 상태를 10분 동안 기억해 local backup이 있을 때 불필요한 재호출을 줄인다.
+  - local backup 변경/동기화 이벤트를 받으면 최신 local week 기준으로 다시 로드한다.
+- `dashboard/lib/local-daily-backup.ts`를 추가했다.
+  - `dashboard/` 앱은 Turbopack root가 `dashboard/`로 제한되어 루트 `lib/local-daily-backup.ts`를 직접 re-export할 수 없어 앱 내부 helper로 분리했다.
+- `tests/local-daily-backup.test.ts`에 standalone dashboard fallback 호환 테스트를 추가했다.
+
+## 2026-07-02 추가 검증: standalone dashboard local fallback
+
+- `npm test`: 29개 통과
+- `npm run lint`: 통과
+- `npm run build`: 통과
+- `cd dashboard && npm run lint`: 통과
+- `cd dashboard && npm run build`: 통과
+- `npm run check:secrets`: 통과
+- `git diff --check`: 통과

@@ -9,6 +9,10 @@ import {
   localDailyBackupPayloadToStorageEntries,
   normalizeLocalDailyBackupPayload,
 } from "../lib/local-daily-backup";
+import {
+  buildLocalDailyBackupPayloadFromEntries as buildDashboardLocalDailyBackupPayloadFromEntries,
+  buildLocalDailyDashboardData as buildDashboardLocalDailyDashboardData,
+} from "../dashboard/lib/local-daily-backup";
 
 describe("local daily backup sync payload", () => {
   it("collects journal, todo, and habit localStorage backups by date", () => {
@@ -150,6 +154,30 @@ describe("local daily backup sync payload", () => {
       went_well: "caught quota failure",
       to_improve: "reduce reads",
     });
+  });
+
+  it("keeps the standalone dashboard local fallback compatible", () => {
+    const payload = buildDashboardLocalDailyBackupPayloadFromEntries([
+      [
+        "journal_2026-07-01",
+        JSON.stringify({
+          accomplishments: "standalone dashboard fallback",
+          went_well: "local data visible",
+        }),
+      ],
+      [
+        "todos_2026-07-01",
+        JSON.stringify([{ id: "todo_1", text: "Check dashboard", completed: true }]),
+      ],
+    ]);
+
+    const dashboard = buildDashboardLocalDailyDashboardData(payload);
+    const wednesday = dashboard?.dailyData.find((day) => day.date === "2026-07-01");
+
+    assert.equal(dashboard?.week, "2026-W27");
+    assert.equal(wednesday?.accomplishments, "standalone dashboard fallback");
+    assert.equal(wednesday?.todoCompleted, 1);
+    assert.equal(wednesday?.todoTotal, 1);
   });
 
   it("returns null when the requested local backup week has no rows", () => {
