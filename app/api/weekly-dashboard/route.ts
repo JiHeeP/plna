@@ -11,8 +11,29 @@ import { NextResponse, NextRequest } from "next/server";
 
 type FirestoreRow = Record<string, unknown> & { id: string };
 type DashboardWarning = { source: string; message: string };
+type DashboardDay = {
+  date: string;
+  habitRate: number;
+  habitCompleted: number;
+  habitTotal: number;
+  todoCompleted: number;
+  todoTotal: number;
+  todos: Array<{ id: string; text: string; completed: boolean }>;
+  accomplishments: string;
+  went_well: string;
+  to_improve: string;
+};
+type DashboardPayload = {
+  week: string;
+  dailyData: DashboardDay[];
+  weeklyGoals: FirestoreRow[];
+  reflection: FirestoreRow | null;
+  warnings: DashboardWarning[];
+};
 
+const DASHBOARD_CACHE_TTL_MS = 30 * 1000;
 const FIRESTORE_QUOTA_COOLDOWN_MS = 2 * 60 * 1000;
+const dashboardPayloadCache = new Map<string, { expiresAt: number; payload: DashboardPayload }>();
 let firestoreQuotaCooldownUntil = 0;
 
 class DashboardQueryError extends Error {
@@ -106,7 +127,7 @@ function compareBy(...fields: string[]) {
   };
 }
 
-function emptyDashboardPayload(week: string, warnings: DashboardWarning[] = []) {
+function emptyDashboardPayload(week: string, warnings: DashboardWarning[] = []): DashboardPayload {
   return {
     week,
     dailyData: getWeekDatesFromStr(week).map((date) => ({
@@ -125,6 +146,33 @@ function emptyDashboardPayload(week: string, warnings: DashboardWarning[] = []) 
     reflection: null,
     warnings,
   };
+}
+
+function cacheKeyFor(requestedWeek: string | null) {
+  return requestedWeek || "__latest__";
+}
+
+function readCachedPayload(cacheKey: string) {
+  const cached = dashboardPayloadCache.get(cacheKey);
+  if (!cached) return null;
+  if (Date.now() >= cached.expiresAt) {
+    dashboardPayloadCache.delete(cacheKey);
+    return null;
+  }
+  return cached.payload;
+}
+
+function writeCachedPayload(cacheKey: string, payload: DashboardPayload) {
+  dashboardPayloadCache.set(cacheKey, {
+    expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS,
+    payload,
+  });
+}
+
+function dashboardJson(payload: DashboardPayload, cacheStatus: "hit" | "miss" | "quota-cooldown" | "quota-error") {
+  const response = NextResponse.json(payload);
+  response.headers.set("x-plna-dashboard-cache", cacheStatus);
+  return response;
 }
 
 async function querySource<T>(source: string, query: () => Promise<T>) {
@@ -318,7 +366,13 @@ export async function GET(req: NextRequest) {
     const requestedWeek = req.nextUrl.searchParams.get("week");
     const fallbackWeek = requestedWeek || getISOWeekString(new Date());
     if (Date.now() < firestoreQuotaCooldownUntil) {
-      return NextResponse.json(emptyDashboardPayload(fallbackWeek, [quotaCooldownWarning()]));
+      return dashboardJson(emptyDashboardPayload(fallbackWeek, [quotaCooldownWarning()]), "quota-cooldown");
+    }
+
+    const cacheKey = cacheKeyFor(requestedWeek);
+    const cachedPayload = readCachedPayload(cacheKey);
+    if (cachedPayload) {
+      return dashboardJson(cachedPayload, "hit");
     }
 
     const db = getFirestore(getFirebaseAdminApp());
@@ -377,17 +431,21 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    if (warnings.some(isQuotaWarning)) {
-      firestoreQuotaCooldownUntil = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
-    }
-
-    return NextResponse.json({
+    const payload: DashboardPayload = {
       week,
       dailyData,
       weeklyGoals: sortedWeeklyGoals,
       reflection,
       warnings,
-    });
+    };
+
+    if (warnings.some(isQuotaWarning)) {
+      firestoreQuotaCooldownUntil = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+      return dashboardJson(payload, "quota-error");
+    }
+
+    writeCachedPayload(cacheKey, payload);
+    return dashboardJson(payload, "miss");
   } catch (error) {
     return errorResponse(error, req);
   }

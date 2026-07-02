@@ -299,6 +299,13 @@
 - 따라서 현재 `RESOURCE_EXHAUSTED: Quota exceeded.`는 코드 배포 실패가 아니라 free tier read quota 소진 상태로 판단한다.
 - 실제 이번주/지난주 Firebase 문서 존재 여부는 quota reset 또는 billing/quota 상향 이후에만 재검증 가능하다.
 
+## 2026-07-02 추가 구현: weekly dashboard 서버 read 완충
+
+- `/api/weekly-dashboard`에 30초 in-memory response cache를 추가했다.
+- quota가 아닌 정상/부분 응답은 같은 server instance 안에서 짧게 재사용해 새로고침과 중복 요청의 Firestore read를 줄인다.
+- quota error 응답은 cache하지 않고 기존 2분 quota cooldown으로 보호한다.
+- 응답 헤더 `x-plna-dashboard-cache`로 `hit`, `miss`, `quota-error`, `quota-cooldown` 상태를 확인할 수 있게 했다.
+
 ## 2026-07-02 추가 검증: dashboard 기본 주차
 
 - `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.
