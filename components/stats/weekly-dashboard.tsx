@@ -126,6 +126,10 @@ function partialLoadError(data: DashboardData): DashboardLoadError | null {
   };
 }
 
+function isQuotaLoadError(error: DashboardLoadError | null) {
+  return Boolean(error?.message && /RESOURCE_EXHAUSTED|Quota exceeded/i.test(error.message));
+}
+
 function isRemoteRetryCoolingDown(state: RemoteDashboardErrorState | null) {
   if (!state?.failed_at) return false;
   const failedAt = Date.parse(state.failed_at);
@@ -377,6 +381,7 @@ export function WeeklyDashboard() {
   }
 
   const { dailyData, weeklyGoals } = data;
+  const hasQuotaError = isQuotaLoadError(loadError);
 
   const rows = [
     { label: "습관 달성률", key: "habitRate" as const },
@@ -432,6 +437,27 @@ export function WeeklyDashboard() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {loadError && (
+        <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          <div className="font-medium">
+            {hasQuotaError ? "Firestore 읽기 한도 초과" : "일부 원격 데이터를 불러오지 못했습니다"}
+          </div>
+          <p className="break-words text-xs leading-relaxed text-amber-900">
+            {hasQuotaError
+              ? "Firebase read quota가 회복되기 전까지 원격 기록이 비어 보일 수 있습니다. 새 daily 기록은 로컬 백업과 서버 write 경로로 계속 보호됩니다."
+              : loadError.message}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={load}>
+              다시 시도
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/local-daily-backup/status">백업 상태</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 주간 표 (가로 스크롤) */}
       <Card>

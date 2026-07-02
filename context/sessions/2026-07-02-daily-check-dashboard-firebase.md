@@ -576,3 +576,35 @@
   - `git diff --check`: 통과
 - 여전히 남은 외부 상태:
   - 실제 이번주/지난주 문서 read 검증은 `8 RESOURCE_EXHAUSTED: Quota exceeded.`로 차단됨.
+
+## 2026-07-02 추가 검증: production daily write API
+
+- Firestore read quota가 계속 초과된 상태에서 production API를 임시 미래 날짜 `2099-12-29`로 호출했다.
+- 호출 결과:
+  - `POST https://plna.vercel.app/api/journal`: 성공
+  - `POST https://plna.vercel.app/api/todos`: 성공
+  - `PATCH https://plna.vercel.app/api/habits`: 성공
+- 이후 로컬 Admin SDK direct delete로 아래 probe 문서들을 삭제했다.
+  - `daily_journals_2099-12-29`
+  - `daily_todo_2099-12-29_quota_production_probe`
+  - `habit_logs_quota_production_probe_habit_2099-12-29`
+- 결론:
+  - 배포된 Vercel production 함수에서도 read quota 초과 중 daily write 경로가 동작한다.
+  - `daily_write_audit`에는 probe 메타데이터가 남았을 수 있으나 본문은 저장하지 않으며, 현재 read quota 때문에 audit auto-id를 조회해 정리할 수는 없다.
+
+## 2026-07-02 추가 구현: dashboard quota warning UI
+
+- root `/weekly-dashboard`와 standalone `dashboard/` weekly dashboard에 quota warning panel을 추가했다.
+- 기존에는 작은 `일부 데이터 누락 가능` 문구만 보여 빈 표가 실제 데이터 없음처럼 보일 수 있었다.
+- 변경 후:
+  - `RESOURCE_EXHAUSTED` 또는 `Quota exceeded` warning이면 `Firestore 읽기 한도 초과`를 표 위에 명확히 표시한다.
+  - root 앱에서는 `다시 시도`, `백업 상태` 버튼을 함께 제공한다.
+  - standalone dashboard에서는 `다시 시도` 버튼을 제공한다.
+- 검증 결과:
+  - `npm test`: 41개 통과
+  - `npm run lint`: 통과
+  - `npm run build`: 통과
+  - `cd dashboard && npm run lint`: 통과
+  - `cd dashboard && npm run build`: 통과
+  - `npm run check:secrets`: 통과
+  - `git diff --check`: 통과
