@@ -127,7 +127,7 @@ function partialLoadError(data: DashboardData): DashboardLoadError | null {
 }
 
 function isQuotaLoadError(error: DashboardLoadError | null) {
-  return Boolean(error?.message && /RESOURCE_EXHAUSTED|Quota exceeded/i.test(error.message));
+  return Boolean(error?.message && /RESOURCE_EXHAUSTED|quota exceeded|firestore-quota|firestore quota/i.test(error.message));
 }
 
 function isRemoteRetryCoolingDown(state: RemoteDashboardErrorState | null) {
