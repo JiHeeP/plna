@@ -323,3 +323,33 @@
 - `cd dashboard && npm run build`: 통과
 - `npm run check:secrets`: 통과
 - `git diff --check`: 통과
+
+## 2026-07-02 추가 점검: daily API read 경로
+
+- production `/api/weekly-dashboard`와 로컬 Admin SDK 직접 조회가 계속 `8 RESOURCE_EXHAUSTED: Quota exceeded.`로 실패했다.
+- 그래서 실제 이번주/지난주 daily 데이터가 Firestore에 있는지 새로 증명하지는 못했다.
+- 코드 점검 결과, `/api/todos`, `/api/journal`, `/api/habits`, `/api/local-daily-backup/sync`, ops 일부 API가 Supabase 호환 레이어를 통해 Firestore 컬렉션 전체를 읽고 JS에서 필터링하는 구조였다.
+  - 예: `daily_todos` 특정 날짜 1일 조회도 기존에는 `daily_todos` 전체 read 후 `date` 필터.
+  - 이 구조는 기록 수가 늘수록 Firestore read를 많이 쓰고, quota 소진 시 특정 날짜 조회도 같이 막힌다.
+
+## 2026-07-02 추가 구현: Supabase 호환 레이어 filtered query
+
+- `FirestoreCompatStore`에 optional `query(collectionName, { filters })`를 추가했다.
+- Admin/Web Firestore store가 가능한 경우 Firestore `where(...)`로 먼저 후보 row를 좁히고, 기존 정렬/복합 필터는 기존 JS 로직으로 마무리한다.
+- 안전을 위해 backend query는 보수적으로 선택한다.
+  - `id == ...`
+  - `date ==/gte/lte ...`
+  - `week == ...`
+  - `is_active == ...`
+  - 그 외에는 단일 필드 또는 첫 equality 필터만 backend로 보낸다.
+- `date` 필드는 기존 데이터가 string이거나 Firestore Timestamp일 수 있어, string 날짜 query와 Date/Timestamp query를 모두 시도한 뒤 document id 기준으로 중복 제거한다.
+- `upsert`, `update`, `delete`, `promote_backlog_item_to_todo`도 전체 list 대신 가능한 경우 filtered query 후보만 읽도록 바꿨다.
+
+## 2026-07-02 추가 검증: filtered query
+
+- `tests/firebase-compatible-client.test.ts`에 filtered store query 사용 테스트를 추가했다.
+- 기존 Timestamp date normalization 테스트가 계속 통과한다.
+- `npm test`: 30개 통과
+- `npm run lint`: 통과
+- `npm run build`: 통과
+- `cd dashboard && npm run lint && npm run build`: 통과

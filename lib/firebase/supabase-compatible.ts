@@ -4,17 +4,23 @@ export type FirestoreRecord = any;
 
 export interface FirestoreCompatStore {
   list(collectionName: string): Promise<FirestoreRecord[]>;
+  query?(collectionName: string, options: FirestoreCompatQueryOptions): Promise<FirestoreRecord[]>;
   create(collectionName: string, data: Record<string, unknown>): Promise<FirestoreRecord>;
   update(collectionName: string, id: string, data: Record<string, unknown>): Promise<FirestoreRecord>;
   delete(collectionName: string, id: string): Promise<void>;
 }
 
-type FilterOperator = "eq" | "neq" | "gte" | "lte" | "lt" | "gt" | "in";
+export type FilterOperator = "eq" | "neq" | "gte" | "lte" | "lt" | "gt" | "in";
 
-interface QueryFilter {
+export interface QueryFilter {
   field: string;
   operator: FilterOperator;
   value: unknown;
+}
+
+export interface FirestoreCompatQueryOptions {
+  filters?: QueryFilter[];
+  limit?: number | null;
 }
 
 interface QueryOrder {
@@ -226,6 +232,31 @@ function matchesFilter(row: FirestoreRecord, filter: QueryFilter) {
   }
 }
 
+function backendFiltersFor(filters: QueryFilter[]) {
+  if (filters.length === 0) return [];
+
+  const idFilter = filters.find((filter) => filter.field === "id" && filter.operator === "eq");
+  if (idFilter) return [idFilter];
+
+  const dateFilters = filters.filter((filter) =>
+    filter.field === "date" &&
+    (filter.operator === "eq" || filter.operator === "gte" || filter.operator === "lte"),
+  );
+  if (dateFilters.length > 0) return dateFilters;
+
+  const weekFilter = filters.find((filter) => filter.field === "week" && filter.operator === "eq");
+  if (weekFilter) return [weekFilter];
+
+  const activeFilter = filters.find((filter) => filter.field === "is_active" && filter.operator === "eq");
+  if (activeFilter) return [activeFilter];
+
+  const firstField = filters[0].field;
+  if (filters.every((filter) => filter.field === firstField)) return filters;
+
+  const equalityFilter = filters.find((filter) => filter.operator === "eq");
+  return equalityFilter ? [equalityFilter] : [filters[0]];
+}
+
 function parseOrExpression(expression: string) {
   return expression
     .split(",")
@@ -393,7 +424,7 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
   private async executeAction(): Promise<FirestoreRecord[]> {
     switch (this.action) {
       case "select":
-        return this.applyQuery(await this.store.list(this.collectionName));
+        return this.applyQuery(await this.getCandidateRows());
       case "insert":
         return this.insertRows();
       case "upsert":
@@ -416,7 +447,6 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
 
   private async upsertRows() {
     const rows = normalizeRows(this.payload ?? {});
-    const existingRows = await this.store.list(this.collectionName);
     const conflictFields =
       this.upsertOptions.onConflict?.split(",").map((field) => field.trim()).filter(Boolean) ??
       UNIQUE_FIELDS[this.collectionName] ??
@@ -424,6 +454,12 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
     const results: FirestoreRecord[] = [];
 
     for (const row of rows) {
+      const conflictFilters = conflictFields
+        .filter((field) => row[field] !== undefined)
+        .map((field) => ({ field, operator: "eq" as const, value: row[field] }));
+      const existingRows = conflictFilters.length > 0
+        ? await this.getCandidateRows(conflictFilters)
+        : await this.store.list(this.collectionName);
       const match = existingRows.find((existing) =>
         conflictFields.every((field) => existing[field] === row[field]),
       );
@@ -441,7 +477,7 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
 
   private async updateRows() {
     const patch = normalizeRows(this.payload ?? {})[0] ?? {};
-    const matches = this.applyQuery(await this.store.list(this.collectionName));
+    const matches = this.applyQuery(await this.getCandidateRows());
     const updatedRows: FirestoreRecord[] = [];
 
     for (const row of matches) {
@@ -452,11 +488,21 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
   }
 
   private async deleteRows() {
-    const matches = this.applyQuery(await this.store.list(this.collectionName));
+    const matches = this.applyQuery(await this.getCandidateRows());
     for (const row of matches) {
       await this.store.delete(this.collectionName, row.id);
     }
     return [];
+  }
+
+  private async getCandidateRows(filters = this.filters) {
+    if (!this.store.query || filters.length === 0) {
+      return this.store.list(this.collectionName);
+    }
+
+    return this.store.query(this.collectionName, {
+      filters: backendFiltersFor(filters),
+    });
   }
 
   private applyQuery(inputRows: FirestoreRecord[]) {
@@ -538,7 +584,12 @@ async function promoteBacklogItemToTodo(
 ): Promise<SupabaseCompatResult<FirestoreRecord[]>> {
   const backlogId = String(params.p_backlog_id ?? "");
   const targetDate = String(params.p_target_date ?? todayString());
-  const backlog = (await store.list("ops_backlog_items")).find((item) => item.id === backlogId);
+  const backlogCandidates = store.query
+    ? await store.query("ops_backlog_items", {
+        filters: [{ field: "id", operator: "eq", value: backlogId }],
+      })
+    : await store.list("ops_backlog_items");
+  const backlog = backlogCandidates.find((item) => item.id === backlogId);
 
   if (!backlog) {
     return {
@@ -548,7 +599,12 @@ async function promoteBacklogItemToTodo(
     };
   }
 
-  const todosForDate = (await store.list("daily_todos")).filter((todo) => todo.date === targetDate);
+  const todoCandidates = store.query
+    ? await store.query("daily_todos", {
+        filters: [{ field: "date", operator: "eq", value: targetDate }],
+      })
+    : await store.list("daily_todos");
+  const todosForDate = todoCandidates.filter((todo) => todo.date === targetDate);
   const nextSortOrder =
     todosForDate.reduce((max, todo) => Math.max(max, Number(todo.sort_order ?? -1)), -1) + 1;
   const todo = await store.create(
@@ -613,6 +669,18 @@ export function createMemoryFirestoreStore(
   return {
     async list(collectionName: string) {
       return collection(collectionName).map((row) => ({ ...row }));
+    },
+    async query(collectionName: string, options: FirestoreCompatQueryOptions) {
+      const filters = options.filters ?? [];
+      let rows = collection(collectionName).filter((row) =>
+        filters.every((filter) => matchesFilter(row, filter)),
+      );
+
+      if (options.limit != null) {
+        rows = rows.slice(0, options.limit);
+      }
+
+      return rows.map((row) => ({ ...row }));
     },
     async create(collectionName: string, data: Record<string, unknown>) {
       const row = {

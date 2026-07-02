@@ -21,6 +21,8 @@ type FakeAdminCollection = {
       data: () => Record<string, unknown>;
     }>;
   }>;
+  where: (field: string, operator: string, value: unknown) => FakeAdminCollection;
+  limit: (count: number) => FakeAdminCollection;
   doc: (id?: string) => FakeAdminDocRef;
 };
 
@@ -33,18 +35,74 @@ function createFakeAdminDb() {
     return collections.get(collectionName)!;
   }
 
+  function compareValues(a: unknown, b: unknown) {
+    if (a && typeof a === "object" && "toDate" in a && typeof a.toDate === "function") {
+      const date = a.toDate();
+      if (date instanceof Date) a = date;
+    }
+    if (b && typeof b === "object" && "toDate" in b && typeof b.toDate === "function") {
+      const date = b.toDate();
+      if (date instanceof Date) b = date;
+    }
+    if (a instanceof Date && typeof b === "string") a = a.toISOString().slice(0, 10);
+    if (b instanceof Date && typeof a === "string") b = b.toISOString().slice(0, 10);
+    if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+    if (a === b) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    return String(a) < String(b) ? -1 : 1;
+  }
+
+  function matches(row: Record<string, unknown>, field: string, operator: string, value: unknown) {
+    const rowValue = row[field];
+    switch (operator) {
+      case "==":
+        return rowValue === value;
+      case "!=":
+        return rowValue !== value;
+      case ">=":
+        return compareValues(rowValue, value) >= 0;
+      case "<=":
+        return compareValues(rowValue, value) <= 0;
+      case "<":
+        return compareValues(rowValue, value) < 0;
+      case ">":
+        return compareValues(rowValue, value) > 0;
+      case "in":
+        return Array.isArray(value) && value.includes(rowValue);
+      default:
+        return true;
+    }
+  }
+
   const db = {
     collection(collectionName: string): FakeAdminCollection {
       const rows = rowsFor(collectionName);
 
-      return {
+      function collectionQuery(
+        filters: Array<{ field: string; operator: string; value: unknown }> = [],
+        rowLimit: number | null = null,
+      ): FakeAdminCollection {
+        return {
         async get() {
+          const entries = Array.from(rows.entries())
+            .filter(([, row]) => filters.every((filter) =>
+              matches(row, filter.field, filter.operator, filter.value),
+            ))
+            .slice(0, rowLimit ?? undefined);
+
           return {
-            docs: Array.from(rows.entries()).map(([id, row]) => ({
+            docs: entries.map(([id, row]) => ({
               id,
               data: () => ({ ...row }),
             })),
           };
+        },
+        where(field: string, operator: string, value: unknown) {
+          return collectionQuery([...filters, { field, operator, value }], rowLimit);
+        },
+        limit(count: number) {
+          return collectionQuery(filters, count);
         },
         doc(id?: string) {
           docCalls.push({ collectionName, id });
@@ -60,7 +118,10 @@ function createFakeAdminDb() {
             },
           };
         },
-      };
+        };
+      }
+
+      return collectionQuery();
     },
   };
 
@@ -139,6 +200,38 @@ describe("Supabase-compatible Firebase client", () => {
       .order("created_at", { ascending: true });
 
     assert.deepEqual(orderedResult.data?.map((item) => item.id), ["b", "a"]);
+  });
+
+  it("uses filtered store queries before in-memory ordering", async () => {
+    const store = createMemoryFirestoreStore({
+      daily_todos: [
+        { id: "old", date: "2026-07-01", text: "Old", sort_order: 0 },
+        { id: "second", date: "2026-07-02", text: "Second", sort_order: 2 },
+        { id: "first", date: "2026-07-02", text: "First", sort_order: 1 },
+      ],
+    });
+    const queryCalls: Array<{ collectionName: string; filters: unknown }> = [];
+    const originalQuery = store.query?.bind(store);
+    store.query = async (collectionName, options) => {
+      queryCalls.push({ collectionName, filters: options.filters });
+      return originalQuery ? originalQuery(collectionName, options) : [];
+    };
+    const client = createSupabaseCompatClient(store);
+
+    const result = await client
+      .from("daily_todos")
+      .select("*")
+      .eq("date", "2026-07-02")
+      .order("sort_order");
+
+    assert.equal(result.error, null);
+    assert.deepEqual(result.data?.map((item) => item.id), ["first", "second"]);
+    assert.deepEqual(queryCalls, [
+      {
+        collectionName: "daily_todos",
+        filters: [{ field: "date", operator: "eq", value: "2026-07-02" }],
+      },
+    ]);
   });
 
   it("inserts defaults and returns a selected single row", async () => {
