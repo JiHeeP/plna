@@ -10,6 +10,7 @@ import {
   formatWeekLabel,
 } from "@/lib/utils";
 import { PILLAR_LABELS } from "@/lib/constants";
+import { LOCAL_DAILY_BACKUP_SYNC_EVENT } from "@/lib/local-daily-backup";
 import {
   ChevronLeft,
   ChevronRight,
@@ -64,6 +65,7 @@ export function WeeklyDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadError, setLoadError] = useState<DashboardLoadError | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [reflectionForm, setReflectionForm] = useState({
     went_well: "",
     to_improve: "",
@@ -111,7 +113,18 @@ export function WeeklyDashboard() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus("idle");
     load();
-  }, [load]);
+  }, [load, reloadToken]);
+
+  useEffect(() => {
+    const handleLocalBackupSynced = () => {
+      setWeek(null);
+      setData(null);
+      setReloadToken((value) => value + 1);
+    };
+
+    window.addEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+    return () => window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, handleLocalBackupSynced);
+  }, []);
 
   useEffect(() => {
     return () => {

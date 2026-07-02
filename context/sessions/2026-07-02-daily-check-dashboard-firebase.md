@@ -92,3 +92,24 @@
   - `FIREBASE_PROJECT_ID`: Production, Preview, Development
   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`: Production, Preview, Development
 - 현재 Vercel 프로젝트의 Root Directory는 `.`이며, 독립 `dashboard/` 앱을 위한 별도 Vercel 프로젝트는 확인되지 않았다.
+
+## 2026-07-02 추가 점검: 6월/7월 데일리 기록 미표시
+
+- `plna-60b1d` Firestore의 top-level/subcollection 컬렉션을 실제 조회했다.
+- `daily_journals`, `daily_todos`, `habit_logs`의 `date` 기준 최신 기록은 모두 `2026-05-31`이었다.
+- 하위 컬렉션은 추가로 발견되지 않았고, 2026-06-01 이후 데일리 계열 기록은 Firestore에 없었다.
+- 코드 확인 결과, daily check 컴포넌트들은 API 실패 시 브라우저 `localStorage`에만 저장하고 이후 Firebase로 재동기화하지 않았다.
+  - `journal_YYYY-MM-DD`
+  - `todos_YYYY-MM-DD`
+  - `habits_YYYY-MM-DD`
+- 그래서 Vercel Firebase env가 없던 기간에 작성한 기록은 사용자의 브라우저 localStorage에 남고, dashboard API가 보는 Firestore에는 없는 상태가 될 수 있다.
+
+## 2026-07-02 추가 구현
+
+- `LocalDailyBackupSync`를 root layout에 추가해 앱 진입 시 localStorage 데일리 백업을 Firebase로 자동 동기화한다.
+- `/api/local-daily-backup/sync`를 추가했다.
+  - journal은 `date` 기준 upsert
+  - todo는 로컬 id 또는 안정 해시 id 기준 upsert
+  - habit check는 `name_en`을 실제 `daily_habits.id`로 매핑해 `habit_logs`에 upsert
+- sync 완료 이벤트 후 main weekly dashboard가 최신 데이터 주차를 다시 계산해 로드하도록 수정했다.
+- 실제 Firestore에 `2099-12-31` 임시 payload를 쓰고 바로 삭제하는 방식으로 sync API 쓰기/정리 검증을 완료했다.

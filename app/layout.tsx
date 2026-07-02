@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { LocalDailyBackupSync } from "@/components/dashboard/local-daily-backup-sync";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <LocalDailyBackupSync />
         <main className="mx-auto w-full max-w-md min-h-screen pb-20 lg:max-w-6xl">
           {children}
         </main>
