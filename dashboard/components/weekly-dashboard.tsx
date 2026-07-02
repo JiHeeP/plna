@@ -239,7 +239,9 @@ export function WeeklyDashboard() {
       clearRemoteErrorState();
       const remoteDashboardData = json as DashboardData;
       const dashboardData = mergeDashboardData(remoteDashboardData, localDashboardData, !week);
-      setLoadError(partialLoadError(remoteDashboardData));
+      const partialError = partialLoadError(remoteDashboardData);
+      setLoadError(partialError);
+      if (partialError) saveRemoteErrorState(partialError);
       if (dashboardData.week !== week) setWeek(dashboardData.week);
       setData(dashboardData);
       setReflectionForm({

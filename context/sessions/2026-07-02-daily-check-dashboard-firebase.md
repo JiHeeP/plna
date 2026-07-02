@@ -288,6 +288,7 @@
 - 기본 주차 계산 중 일부 latest read가 실패해도 성공한 latest 값으로 주차를 계산한다.
 - 모든 latest read가 실패하면 현재 주차를 fallback으로 사용해 local backup merge/표시 경로가 계속 살아 있게 했다.
 - UI는 `warnings`가 있는 200 응답을 받으면 `일부 데이터 누락 가능` 상태를 표시한다.
+- `warnings` 응답도 remote error cooldown 상태로 저장해 local backup이 있는 브라우저에서는 10분 동안 불필요한 Firebase 재시도를 줄인다.
 - 로컬 검증 결과, 현재 Firestore quota 초과 상태에서도 `/api/weekly-dashboard`는 200을 반환하고 `warnings`에 quota 실패 source를 포함했다.
 
 ## 2026-07-02 추가 검증: dashboard 기본 주차
