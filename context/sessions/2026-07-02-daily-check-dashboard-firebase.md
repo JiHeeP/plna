@@ -491,3 +491,42 @@
   - HTTP 500
   - `source: daily_write_audit`
   - `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+
+## 2026-07-02 추가 구현: 날짜별 daily record 실측 도구
+
+- `npm run check:daily-records`를 추가했다.
+- 기본 범위는 현재 ISO week와 직전 ISO week다.
+  - 2026-07-02 기준 기본 범위: `2026-06-22` ~ `2026-07-05`
+- 옵션:
+  - `--week=2026-W27`
+  - `--start=YYYY-MM-DD --end=YYYY-MM-DD`
+  - `--include-audit`
+- 조회 대상:
+  - `daily_journals`
+  - `daily_todos`
+  - `habit_logs`
+  - 선택 시 `daily_write_audit`
+- dashboard와 같은 방식으로 string `date`와 Firestore Timestamp/Date `date`를 모두 조회한다.
+- 출력은 날짜별 count와 field name만 포함하며 journal/todo 본문은 출력하지 않는다.
+- 현재 quota 상태에서 실행 결과:
+  - `daily_journals`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+  - `daily_todos`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+  - `habit_logs`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+  - `daily_write_audit`: `8 RESOURCE_EXHAUSTED: Quota exceeded.`
+- quota reset 또는 billing/quota 상향 직후 아래 명령으로 이번주/지난주 실제 문서 존재 여부를 바로 검증한다.
+  - `npm run check:daily-records -- --start=2026-06-22 --end=2026-07-05 --include-audit`
+
+## 2026-07-02 추가 검증: daily record 실측 도구
+
+- `tests/check-daily-records.test.mjs`를 추가했다.
+- 검증 내용:
+  - 기본 날짜 범위가 직전+현재 ISO week로 잡힌다.
+  - `--week=2026-W27`이 `2026-06-29` ~ `2026-07-05`로 해석된다.
+  - string date와 Timestamp/Date date가 모두 날짜별 count에 반영된다.
+  - journal/todo 본문은 report JSON에 포함되지 않는다.
+- 검증 결과:
+  - `npm test`: 37개 통과
+  - `npm run lint`: 통과
+  - `npm run build`: 통과
+  - `npm run check:secrets`: 통과
+  - `git diff --check`: 통과
