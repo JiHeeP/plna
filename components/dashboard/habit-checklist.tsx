@@ -97,7 +97,7 @@ export function HabitChecklist({ date }: { date?: string }) {
     [logs, targetDate]
   );
 
-  const saveLocalHabitCheck = (habitNameEn: string, completed: boolean) => {
+  const saveLocalHabitCheck = (habitNameEn: string, completed: boolean, notify = true) => {
     const saved = localStorage.getItem(`habits_${targetDate}`);
     let localChecked: Record<string, boolean> = {};
     if (saved) {
@@ -113,7 +113,9 @@ export function HabitChecklist({ date }: { date?: string }) {
       delete localChecked[habitNameEn];
     }
     localStorage.setItem(`habits_${targetDate}`, JSON.stringify(localChecked));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    }
   };
 
   const toggleHabit = async (habit: DailyHabit) => {
@@ -137,6 +139,7 @@ export function HabitChecklist({ date }: { date?: string }) {
         prev.filter((l) => !(l.habit_id === habit.id && l.date === targetDate))
       );
     }
+    saveLocalHabitCheck(habit.name_en, newCompleted, false);
 
     if (useLocal) {
       saveLocalHabitCheck(habit.name_en, newCompleted);
@@ -154,6 +157,7 @@ export function HabitChecklist({ date }: { date?: string }) {
         }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      saveLocalHabitCheck(habit.name_en, newCompleted);
     } catch {
       setUseLocal(true);
       saveLocalHabitCheck(habit.name_en, newCompleted);

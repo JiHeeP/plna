@@ -113,7 +113,7 @@ export function WeeklyHabitGrid() {
     [weekLogs]
   );
 
-  const saveLocalHabitCheck = (habitNameEn: string, date: string, completed: boolean) => {
+  const saveLocalHabitCheck = (habitNameEn: string, date: string, completed: boolean, notify = true) => {
     const saved = localStorage.getItem(`habits_${date}`);
     let localChecked: Record<string, boolean> = {};
     if (saved) {
@@ -129,7 +129,9 @@ export function WeeklyHabitGrid() {
       delete localChecked[habitNameEn];
     }
     localStorage.setItem(`habits_${date}`, JSON.stringify(localChecked));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    }
   };
 
   const toggleHabit = async (habit: DailyHabit, date: string) => {
@@ -153,6 +155,7 @@ export function WeeklyHabitGrid() {
         prev.filter((l) => !(l.habit_id === habit.id && l.date === date))
       );
     }
+    saveLocalHabitCheck(habit.name_en, date, newCompleted, false);
 
     if (useLocal) {
       saveLocalHabitCheck(habit.name_en, date, newCompleted);
@@ -170,6 +173,7 @@ export function WeeklyHabitGrid() {
         }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      saveLocalHabitCheck(habit.name_en, date, newCompleted);
     } catch {
       setUseLocal(true);
       saveLocalHabitCheck(habit.name_en, date, newCompleted);

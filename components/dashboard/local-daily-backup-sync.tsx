@@ -44,6 +44,7 @@ function saveSyncState(state: LocalBackupSyncState) {
 export function LocalDailyBackupSync() {
   useEffect(() => {
     let cancelled = false;
+    let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function syncLocalBackups() {
       const payload = buildLocalDailyBackupPayloadFromEntries(
@@ -101,12 +102,21 @@ export function LocalDailyBackupSync() {
       }
     }
 
+    function scheduleSyncLocalBackups() {
+      if (syncTimer) clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        syncTimer = null;
+        void syncLocalBackups();
+      }, 1000);
+    }
+
     void syncLocalBackups();
-    window.addEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, syncLocalBackups);
+    window.addEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, scheduleSyncLocalBackups);
 
     return () => {
       cancelled = true;
-      window.removeEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, syncLocalBackups);
+      if (syncTimer) clearTimeout(syncTimer);
+      window.removeEventListener(LOCAL_DAILY_BACKUP_CHANGED_EVENT, scheduleSyncLocalBackups);
     };
   }, []);
 

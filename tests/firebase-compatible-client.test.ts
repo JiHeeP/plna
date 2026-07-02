@@ -162,6 +162,28 @@ describe("Supabase-compatible Firebase client", () => {
     assert.equal(stored.length, 1);
   });
 
+  it("preserves explicit ids when inserting local-first daily todos", async () => {
+    const store = createMemoryFirestoreStore();
+    const client = createSupabaseCompatClient(store);
+
+    const result = await client
+      .from("daily_todos")
+      .insert({
+        id: "local_123",
+        date: "2026-07-02",
+        text: "Local-first todo",
+        sort_order: 0,
+      })
+      .select()
+      .single();
+
+    assert.equal(result.error, null);
+    assert.equal(result.data?.id, "local_123");
+
+    const stored = await store.list("daily_todos");
+    assert.equal(stored[0].id, "local_123");
+  });
+
   it("upserts by onConflict fields instead of creating duplicates", async () => {
     const store = createMemoryFirestoreStore({
       habit_logs: [

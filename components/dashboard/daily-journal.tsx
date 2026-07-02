@@ -49,9 +49,11 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const saveLocal = useCallback(
-    (updatedForm: typeof form) => {
+    (updatedForm: typeof form, notify = true) => {
       localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
-      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+      if (notify) {
+        window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+      }
     },
     [targetDate],
   );
@@ -121,6 +123,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const saveJournal = useCallback(
     async (updatedForm: typeof form) => {
       setSaving(true);
+      saveLocal(updatedForm, false);
 
       if (useLocal) {
         saveLocal(updatedForm);
@@ -140,6 +143,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
+        saveLocal(updatedForm);
         setSaveStatus("saved");
       } catch (err) {
         console.error("저널 저장 실패:", err);
@@ -156,6 +160,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const handleChange = (key: keyof typeof form, value: string) => {
     const updated = { ...form, [key]: value };
     setForm(updated);
+    saveLocal(updated, false);
 
     // 자동 저장 (1초 디바운스)
     if (saveTimer.current) clearTimeout(saveTimer.current);

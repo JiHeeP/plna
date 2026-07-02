@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const text = String(body.text ?? "").trim();
   const sortOrder = Number(body.sort_order);
+  const id = typeof body.id === "string" && body.id.trim() && !body.id.includes("/")
+    ? body.id.trim()
+    : undefined;
 
   if (!text) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("daily_todos")
     .insert({
+      id,
       date: body.date || new Date().toISOString().split("T")[0],
       text,
       sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,

@@ -267,3 +267,15 @@
   - daily 기록 주차가 있으면 더 최신 weekly goal/reflection 주차보다 daily 주차를 우선한다.
   - `daily_todos`만 있어도 daily dashboard 기록으로 간주한다.
   - daily 기록이 없을 때만 weekly goal/reflection을 사용한다.
+
+## 2026-07-02 추가 구현: daily 입력 선로컬 백업
+
+- daily journal/todo/habit 변경은 서버 API 호출 전 localStorage 백업을 먼저 갱신하도록 바꿨다.
+- Firebase API가 성공하더라도 같은 local backup을 최신 상태로 유지한다.
+- 새 todo는 `local_*` id를 먼저 만들고 `/api/todos` POST에도 전달해, 이후 local backup sync가 같은 항목을 중복 생성할 가능성을 줄였다.
+- `LocalDailyBackupSync`는 backup 변경 이벤트를 1초 debounce해서 journal 입력 중 과도한 sync 호출을 줄인다.
+- 이 변경의 목적은 Firestore quota/일시 장애/응답 성공 후 조회 불일치가 있어도 브라우저 백업과 dashboard fallback이 먼저 살아 있게 하는 것이다.
+
+## 2026-07-02 추가 검증: 선로컬 백업
+
+- explicit id를 가진 local-first `daily_todos` insert가 id를 보존하는 테스트를 추가했다.

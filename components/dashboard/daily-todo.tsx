@@ -67,9 +67,11 @@ export function DailyTodoList({ date }: { date?: string }) {
     loadTodos();
   }, [loadTodos]);
 
-  const saveLocal = (updated: DailyTodo[]) => {
+  const saveLocal = (updated: DailyTodo[], notify = true) => {
     localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+    }
   };
 
   const switchToLocal = (updated: DailyTodo[]) => {
@@ -79,6 +81,7 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const persistOrder = async (ordered: DailyTodo[]) => {
     if (useLocal) return;
+    saveLocal(ordered, false);
     try {
       const responses = await Promise.all(
         ordered.map((t, idx) =>
@@ -91,6 +94,8 @@ export function DailyTodoList({ date }: { date?: string }) {
       );
       if (responses.some((response) => !response.ok)) {
         switchToLocal(ordered);
+      } else {
+        saveLocal(ordered);
       }
     } catch {
       switchToLocal(ordered);
@@ -125,23 +130,25 @@ export function DailyTodoList({ date }: { date?: string }) {
       sort_order: todos.length,
       created_at: new Date().toISOString(),
     };
+    const optimistic = [...todos, localTodo];
+    setTodos(optimistic);
+    saveLocal(optimistic, false);
+    setNewText("");
 
     try {
       const response = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: targetDate, text, sort_order: todos.length }),
+        body: JSON.stringify({ id: localTodo.id, date: targetDate, text, sort_order: todos.length }),
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = (await response.json()) as DailyTodo;
-      setTodos((prev) => [...prev, data]);
+      const saved = optimistic.map((todo) => (todo.id === localTodo.id ? data : todo));
+      setTodos(saved);
+      saveLocal(saved);
     } catch {
-      const updated = [...todos, localTodo];
-      setTodos(updated);
-      switchToLocal(updated);
-    } finally {
-      setNewText("");
+      switchToLocal(optimistic);
     }
   };
 
@@ -151,6 +158,7 @@ export function DailyTodoList({ date }: { date?: string }) {
 
     const updated = todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
     setTodos(updated);
+    saveLocal(updated, false);
 
     if (useLocal) {
       saveLocal(updated);
@@ -164,6 +172,7 @@ export function DailyTodoList({ date }: { date?: string }) {
         body: JSON.stringify({ id, completed: !todo.completed }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      saveLocal(updated);
     } catch {
       switchToLocal(updated);
     }
@@ -181,6 +190,7 @@ export function DailyTodoList({ date }: { date?: string }) {
     const updated = todos.map((t) => (t.id === id ? { ...t, text } : t));
     setTodos(updated);
     setEditingId(null);
+    saveLocal(updated, false);
 
     if (useLocal) {
       saveLocal(updated);
@@ -194,6 +204,7 @@ export function DailyTodoList({ date }: { date?: string }) {
         body: JSON.stringify({ id, text }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      saveLocal(updated);
     } catch {
       switchToLocal(updated);
     }
@@ -202,6 +213,7 @@ export function DailyTodoList({ date }: { date?: string }) {
   const deleteTodo = async (id: string) => {
     const updated = todos.filter((t) => t.id !== id);
     setTodos(updated);
+    saveLocal(updated, false);
 
     if (useLocal) {
       saveLocal(updated);
@@ -214,6 +226,7 @@ export function DailyTodoList({ date }: { date?: string }) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       await persistOrder(updated);
+      saveLocal(updated);
     } catch {
       switchToLocal(updated);
     }
