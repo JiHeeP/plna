@@ -6,6 +6,10 @@ import {
   createMemoryFirestoreStore,
   createSupabaseCompatClient,
 } from "../lib/firebase/supabase-compatible";
+import {
+  createMemoryFirestoreStore as createDashboardMemoryFirestoreStore,
+  createSupabaseCompatClient as createDashboardSupabaseCompatClient,
+} from "../dashboard/lib/firebase/supabase-compatible";
 import { getWeekDatesFromStr, toDateString } from "../lib/utils";
 
 type FakeAdminDocRef = {
@@ -230,6 +234,42 @@ describe("Supabase-compatible Firebase client", () => {
       {
         collectionName: "daily_todos",
         filters: [{ field: "date", operator: "eq", value: "2026-07-02" }],
+      },
+    ]);
+  });
+
+  it("keeps the standalone dashboard Firebase layer on filtered store queries", async () => {
+    const store = createDashboardMemoryFirestoreStore({
+      daily_todos: [
+        { id: "old", date: "2026-07-01", text: "Old", sort_order: 0 },
+        { id: "second", date: "2026-07-02", text: "Second", sort_order: 2 },
+        { id: "first", date: "2026-07-02", text: "First", sort_order: 1 },
+      ],
+    });
+    const queryCalls: Array<{ collectionName: string; filters: unknown }> = [];
+    const originalQuery = store.query?.bind(store);
+    store.query = async (collectionName, options) => {
+      queryCalls.push({ collectionName, filters: options.filters });
+      return originalQuery ? originalQuery(collectionName, options) : [];
+    };
+    const client = createDashboardSupabaseCompatClient(store);
+
+    const result = await client
+      .from("daily_todos")
+      .select("*")
+      .gte("date", "2026-07-02")
+      .lte("date", "2026-07-02")
+      .order("sort_order");
+
+    assert.equal(result.error, null);
+    assert.deepEqual(result.data?.map((item) => item.id), ["first", "second"]);
+    assert.deepEqual(queryCalls, [
+      {
+        collectionName: "daily_todos",
+        filters: [
+          { field: "date", operator: "gte", value: "2026-07-02" },
+          { field: "date", operator: "lte", value: "2026-07-02" },
+        ],
       },
     ]);
   });

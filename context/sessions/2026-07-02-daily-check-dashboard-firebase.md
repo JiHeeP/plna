@@ -258,6 +258,26 @@
 - 기존에는 daily 기록 최신 주차와 weekly goal/reflection 최신 주차를 모두 섞어서 가장 큰 주차를 골랐다.
   - 이 경우 weekly goal만 있는 최신 주로 이동해 daily 기록이 있는 주차가 빈 화면처럼 보일 수 있다.
 - 변경 후에는 `habit_logs`, `daily_journals`, `daily_todos` 중 daily 기록이 있는 최신 주차를 먼저 선택한다.
+
+## 2026-07-02 추가 점검: 특정 기간 daily 기록 미표시 원인 후보
+
+- git history 기준 localStorage daily backup key는 과거에도 현재와 같은 형식이었다.
+  - `journal_YYYY-MM-DD`
+  - `todos_YYYY-MM-DD`
+  - `habits_YYYY-MM-DD`
+- 별도 legacy key 이름은 발견되지 않았다.
+- production `/api/weekly-dashboard`와 로컬 Admin SDK 직접 read는 모두 `8 RESOURCE_EXHAUSTED: Quota exceeded.`로 실패했다.
+- 따라서 현재 상태에서는 “해당 기간 daily 기록이 Firebase에 없다”고 확정할 수 없다. Firestore quota가 회복되어야 실제 문서 존재 여부를 재검증할 수 있다.
+
+## 2026-07-02 추가 구현: standalone dashboard Firestore query 계층 동기화
+
+- root 앱의 Firebase 호환 계층은 이미 `query()` 기반 필터 조회로 최적화되어 있었지만, `dashboard/` 앱의 복사본은 여전히 `list()` 전체 스캔 후 메모리 필터링을 사용하고 있었다.
+- `dashboard/lib/firebase/supabase-compatible.ts`에 root와 같은 filtered query 경로를 추가했다.
+  - `date`, `week`, `id`, `is_active` 등 dashboard 주요 필터를 backend query로 먼저 전달한다.
+  - `upsert`, `update`, `delete`, backlog promotion도 가능한 경우 전체 스캔 대신 후보 row만 조회한다.
+- `dashboard/lib/firebase/firestore-store.ts`에 root와 같은 Firestore `where`/`limit` query를 추가했다.
+  - `date` string 저장 문서와 Firestore Timestamp/Date 저장 문서를 모두 조회하도록 date filter variant를 유지한다.
+- standalone dashboard 복사본이 다시 전체 컬렉션 스캔으로 퇴행하지 않도록 회귀 테스트를 추가했다.
 - daily 기록이 전혀 없을 때만 weekly goal/reflection 주차를 fallback으로 사용한다.
 - 기본 로드 시 weekly goal/reflection 최신 주차 조회는 daily 기록이 없을 때만 수행하므로 Firestore read도 줄어든다.
 

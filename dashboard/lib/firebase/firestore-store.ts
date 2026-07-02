@@ -3,11 +3,21 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  limit as firestoreLimit,
+  query as firestoreQuery,
   setDoc,
+  where,
   type Firestore,
+  type QueryConstraint,
+  type WhereFilterOp,
 } from "firebase/firestore";
 
-import type { FirestoreCompatStore, FirestoreRecord } from "./supabase-compatible";
+import type {
+  FilterOperator,
+  FirestoreCompatQueryOptions,
+  FirestoreCompatStore,
+  FirestoreRecord,
+} from "./supabase-compatible";
 
 function sanitizeForFirestore(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -63,14 +73,91 @@ function normalizeFromFirestore(value: unknown, key?: string): unknown {
   return value;
 }
 
+function firestoreOperator(operator: FilterOperator) {
+  switch (operator) {
+    case "eq":
+      return "==";
+    case "neq":
+      return "!=";
+    case "gte":
+      return ">=";
+    case "lte":
+      return "<=";
+    case "lt":
+      return "<";
+    case "gt":
+      return ">";
+    case "in":
+      return "in";
+  }
+}
+
+function dateStringToDate(value: unknown) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00.000Z`)
+    : null;
+}
+
+function queryFilterVariants(options: FirestoreCompatQueryOptions) {
+  const filters = options.filters ?? [];
+  const dateConvertedFilters = filters.map((filter) => {
+    if (filter.field !== "date") return filter;
+    const date = dateStringToDate(filter.value);
+    return date ? { ...filter, value: date } : filter;
+  });
+  const hasDateVariant = dateConvertedFilters.some((filter, index) => filter.value !== filters[index]?.value);
+
+  return hasDateVariant ? [filters, dateConvertedFilters] : [filters];
+}
+
+function rowFromSnapshotDoc(snapshotDoc: {
+  id: string;
+  data: () => Record<string, unknown>;
+}) {
+  return {
+    id: snapshotDoc.id,
+    ...(normalizeFromFirestore(snapshotDoc.data()) as Record<string, unknown>),
+  } as FirestoreRecord;
+}
+
+function uniqueRows(rows: FirestoreRecord[]) {
+  return [...new Map(rows.map((row) => [String(row.id), row])).values()];
+}
+
+type AdminFirestoreQuery = {
+  get: () => Promise<{
+    docs: Array<{
+      id: string;
+      data: () => Record<string, unknown>;
+    }>;
+  }>;
+  where: (field: string, operator: string, value: unknown) => AdminFirestoreQuery;
+  limit: (count: number) => AdminFirestoreQuery;
+};
+
 export function createWebFirestoreStore(db: Firestore): FirestoreCompatStore {
   return {
     async list(collectionName: string) {
       const snapshot = await getDocs(collection(db, collectionName));
-      return snapshot.docs.map((snapshotDoc) => ({
-        id: snapshotDoc.id,
-        ...(normalizeFromFirestore(snapshotDoc.data()) as Record<string, unknown>),
-      })) as FirestoreRecord[];
+      return snapshot.docs.map(rowFromSnapshotDoc);
+    },
+    async query(collectionName: string, options: FirestoreCompatQueryOptions) {
+      const rows: FirestoreRecord[] = [];
+
+      for (const filters of queryFilterVariants(options)) {
+        const constraints: QueryConstraint[] = filters.map((filter) =>
+          where(filter.field, firestoreOperator(filter.operator) as WhereFilterOp, filter.value),
+        );
+
+        if (options.limit != null) {
+          constraints.push(firestoreLimit(options.limit));
+        }
+
+        const snapshot = await getDocs(firestoreQuery(collection(db, collectionName), ...constraints));
+        rows.push(...snapshot.docs.map(rowFromSnapshotDoc));
+      }
+
+      return uniqueRows(rows).slice(0, options.limit ?? undefined);
     },
     async create(collectionName: string, data: Record<string, unknown>) {
       const id = String(data.id ?? doc(collection(db, collectionName)).id);
@@ -99,6 +186,8 @@ export function createAdminFirestoreStore(db: {
         data: () => Record<string, unknown>;
       }>;
     }>;
+    where: (field: string, operator: string, value: unknown) => AdminFirestoreQuery;
+    limit: (count: number) => AdminFirestoreQuery;
     doc: (id?: string) => {
       id: string;
       set: (data: Record<string, unknown>, options?: { merge: boolean }) => Promise<unknown>;
@@ -109,10 +198,27 @@ export function createAdminFirestoreStore(db: {
   return {
     async list(collectionName: string) {
       const snapshot = await db.collection(collectionName).get();
-      return snapshot.docs.map((snapshotDoc) => ({
-        id: snapshotDoc.id,
-        ...(normalizeFromFirestore(snapshotDoc.data()) as Record<string, unknown>),
-      })) as FirestoreRecord[];
+      return snapshot.docs.map(rowFromSnapshotDoc);
+    },
+    async query(collectionName: string, options: FirestoreCompatQueryOptions) {
+      const rows: FirestoreRecord[] = [];
+
+      for (const filters of queryFilterVariants(options)) {
+        let query: AdminFirestoreQuery = db.collection(collectionName);
+
+        for (const filter of filters) {
+          query = query.where(filter.field, firestoreOperator(filter.operator), filter.value);
+        }
+
+        if (options.limit != null) {
+          query = query.limit(options.limit);
+        }
+
+        const snapshot = await query.get();
+        rows.push(...snapshot.docs.map(rowFromSnapshotDoc));
+      }
+
+      return uniqueRows(rows).slice(0, options.limit ?? undefined);
     },
     async create(collectionName: string, data: Record<string, unknown>) {
       const collectionRef = db.collection(collectionName);
