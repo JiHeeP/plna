@@ -58,6 +58,23 @@ export function DailyJournalCard({ date }: { date?: string }) {
     [targetDate],
   );
 
+  const readLocalJournal = useCallback(() => {
+    const saved = localStorage.getItem(`journal_${targetDate}`);
+    if (!saved) return null;
+
+    try {
+      const parsed = JSON.parse(saved) as Partial<typeof form>;
+      if (!parsed || typeof parsed !== "object") return null;
+      return {
+        accomplishments: typeof parsed.accomplishments === "string" ? parsed.accomplishments : "",
+        to_improve: typeof parsed.to_improve === "string" ? parsed.to_improve : "",
+        went_well: typeof parsed.went_well === "string" ? parsed.went_well : "",
+      };
+    } catch {
+      return null;
+    }
+  }, [targetDate]);
+
   const loadJournal = useCallback(async () => {
     setLoading(true);
     const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
@@ -69,33 +86,30 @@ export function DailyJournalCard({ date }: { date?: string }) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = (await response.json()) as DailyJournal | null;
-      if (data) {
-        setForm({
+      const localForm = readLocalJournal();
+      if (localForm !== null) {
+        setForm(localForm);
+      } else if (data) {
+        const remoteForm = {
           accomplishments: data.accomplishments ?? "",
           to_improve: data.to_improve ?? "",
           went_well: data.went_well ?? "",
-        });
+        };
+        setForm(remoteForm);
+        if (remoteForm.accomplishments || remoteForm.to_improve || remoteForm.went_well) {
+          saveLocal(remoteForm, false);
+        }
       } else {
         setForm(emptyForm);
       }
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      const saved = localStorage.getItem(`journal_${targetDate}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setForm(parsed);
-        } catch {
-          setForm(emptyForm);
-        }
-      } else {
-        setForm(emptyForm);
-      }
+      setForm(readLocalJournal() ?? emptyForm);
     } finally {
       setLoading(false);
     }
-  }, [targetDate]);
+  }, [readLocalJournal, saveLocal, targetDate]);
 
   useEffect(() => {
     // 날짜 전환 시 이전 날짜의 대기 중 저장 타이머 취소

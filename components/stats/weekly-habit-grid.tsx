@@ -44,6 +44,20 @@ export function WeeklyHabitGrid() {
   const weekStart = toDateString(weekDates[0]);
   const weekEnd = toDateString(weekDates[6]);
 
+  const readLocalHabitChecks = useCallback((date: string) => {
+    const saved = localStorage.getItem(`habits_${date}`);
+    if (saved === null) return null;
+
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, boolean>
+        : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       const response = await fetch(
@@ -57,7 +71,31 @@ export function WeeklyHabitGrid() {
         logs: HabitLog[];
       };
       setHabits(data.habits || []);
-      setWeekLogs(data.logs || []);
+      const localDates = new Set<string>();
+      const localLogs: HabitLog[] = [];
+      weekDates.forEach((d) => {
+        const dateStr = toDateString(d);
+        const checked = readLocalHabitChecks(dateStr);
+        if (checked === null) return;
+
+        localDates.add(dateStr);
+        (data.habits || []).forEach((habit) => {
+          if (checked[habit.name_en]) {
+            localLogs.push({
+              id: `local_${habit.id}_${dateStr}`,
+              habit_id: habit.id,
+              date: dateStr,
+              completed: true,
+              value: null,
+              created_at: "",
+            });
+          }
+        });
+      });
+      setWeekLogs([
+        ...(data.logs || []).filter((log) => !localDates.has(log.date)),
+        ...localLogs,
+      ]);
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -75,14 +113,8 @@ export function WeeklyHabitGrid() {
       const logs: HabitLog[] = [];
       weekDates.forEach((d) => {
         const dateStr = toDateString(d);
-        const saved = localStorage.getItem(`habits_${dateStr}`);
-        if (saved) {
-          let checked: Record<string, boolean> = {};
-          try {
-            checked = JSON.parse(saved);
-          } catch {
-            checked = {};
-          }
+        const checked = readLocalHabitChecks(dateStr);
+        if (checked !== null) {
           localHabits.forEach((habit) => {
             if (checked[habit.name_en]) {
               logs.push({
@@ -101,7 +133,7 @@ export function WeeklyHabitGrid() {
     } finally {
       setLoading(false);
     }
-  }, [weekStart, weekEnd, weekDates]);
+  }, [readLocalHabitChecks, weekStart, weekEnd, weekDates]);
 
   useEffect(() => {
     loadData();

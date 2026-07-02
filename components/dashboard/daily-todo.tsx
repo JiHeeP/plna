@@ -37,13 +37,24 @@ export function DailyTodoList({ date }: { date?: string }) {
 
   const readLocalTodos = useCallback(() => {
     const saved = localStorage.getItem(`todos_${targetDate}`);
-    if (!saved) return [];
+    if (saved === null) return null;
     try {
-      return JSON.parse(saved) as DailyTodo[];
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed as DailyTodo[] : null;
     } catch {
-      return [];
+      return null;
     }
   }, [targetDate]);
+
+  const saveLocal = useCallback(
+    (updated: DailyTodo[], notify = true) => {
+      localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
+      if (notify) {
+        window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+      }
+    },
+    [targetDate],
+  );
 
   const loadTodos = useCallback(async () => {
     try {
@@ -53,26 +64,25 @@ export function DailyTodoList({ date }: { date?: string }) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = (await response.json()) as DailyTodo[];
-      setTodos(data || []);
+      const localTodos = readLocalTodos();
+      if (localTodos !== null) {
+        setTodos(localTodos);
+      } else {
+        setTodos(data || []);
+        if (data?.length) saveLocal(data, false);
+      }
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      setTodos(readLocalTodos());
+      setTodos(readLocalTodos() ?? []);
     } finally {
       setLoading(false);
     }
-  }, [readLocalTodos, targetDate]);
+  }, [readLocalTodos, saveLocal, targetDate]);
 
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
-
-  const saveLocal = (updated: DailyTodo[], notify = true) => {
-    localStorage.setItem(`todos_${targetDate}`, JSON.stringify(updated));
-    if (notify) {
-      window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
-    }
-  };
 
   const switchToLocal = (updated: DailyTodo[]) => {
     setUseLocal(true);

@@ -32,6 +32,20 @@ export function HabitChecklist({ date }: { date?: string }) {
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
+  const readLocalHabitChecks = useCallback(() => {
+    const saved = localStorage.getItem(`habits_${targetDate}`);
+    if (saved === null) return null;
+
+    try {
+      const parsed = JSON.parse(saved);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as Record<string, boolean>
+        : {};
+    } catch {
+      return {};
+    }
+  }, [targetDate]);
+
   const loadData = useCallback(async () => {
     try {
       const response = await fetch(`/api/habits?date=${encodeURIComponent(targetDate)}`, {
@@ -41,11 +55,27 @@ export function HabitChecklist({ date }: { date?: string }) {
 
       const habitsData = (await response.json()) as HabitWithLog[];
       setHabits(habitsData);
-      setLogs(
-        habitsData
-          .map((habit) => habit.log)
-          .filter((log): log is HabitLog => Boolean(log?.completed)),
-      );
+      const localChecked = readLocalHabitChecks();
+      if (localChecked !== null) {
+        setLogs(
+          habitsData
+            .filter((habit) => localChecked[habit.name_en])
+            .map((habit) => ({
+              id: `local_${habit.id}_${targetDate}`,
+              habit_id: habit.id,
+              date: targetDate,
+              completed: true,
+              value: null,
+              created_at: "",
+            })),
+        );
+      } else {
+        setLogs(
+          habitsData
+            .map((habit) => habit.log)
+            .filter((log): log is HabitLog => Boolean(log?.completed)),
+        );
+      }
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -60,14 +90,8 @@ export function HabitChecklist({ date }: { date?: string }) {
       }));
       setHabits(localHabits);
 
-      const saved = localStorage.getItem(`habits_${targetDate}`);
-      if (saved) {
-        let checked: Record<string, boolean> = {};
-        try {
-          checked = JSON.parse(saved);
-        } catch {
-          checked = {};
-        }
+      const checked = readLocalHabitChecks();
+      if (checked !== null) {
         const restored: HabitLog[] = localHabits
           .filter((habit) => checked[habit.name_en])
           .map((habit) => ({
@@ -85,7 +109,7 @@ export function HabitChecklist({ date }: { date?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [targetDate]);
+  }, [readLocalHabitChecks, targetDate]);
 
   useEffect(() => {
     loadData();

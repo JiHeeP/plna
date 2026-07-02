@@ -279,3 +279,16 @@
 ## 2026-07-02 추가 검증: 선로컬 백업
 
 - explicit id를 가진 local-first `daily_todos` insert가 id를 보존하는 테스트를 추가했다.
+
+## 2026-07-02 추가 구현: load 시 local backup 우선
+
+- daily 화면이 서버 API `200` 응답을 받더라도 같은 날짜의 local backup이 있으면 local backup을 우선 표시하도록 바꿨다.
+- 대상:
+  - `DailyTodoList`
+  - `DailyJournalCard`
+  - `HabitChecklist`
+  - `WeeklyHabitGrid`
+- 이유:
+  - 서버가 빈 배열/null을 반환하면 기존에는 브라우저에 남은 백업이 있어도 빈 화면으로 보일 수 있었다.
+  - 사용자가 todo를 전부 지우거나 journal 내용을 비운 상태도 최신 의도일 수 있으므로, local key가 존재하면 빈 값도 local 기준으로 인정한다.
+- remote 데이터만 있고 local backup이 없는 경우에는 remote 데이터를 local backup으로 캐시해 이후 dashboard fallback이 읽을 수 있게 했다.
