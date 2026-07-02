@@ -27,6 +27,8 @@ import {
 import type { WeeklyGoal } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const REMOTE_ERROR_STATE_KEY = "plna_weekly_dashboard_remote_error_state";
+const REMOTE_RETRY_MS = 10 * 60 * 1000;
 
 interface DailyTodoSummary {
   id: string;
@@ -60,6 +62,10 @@ interface DashboardLoadError {
   status?: number;
 }
 
+interface RemoteDashboardErrorState extends DashboardLoadError {
+  failed_at?: string;
+}
+
 function habitRateColor(rate: number) {
   if (rate >= 70) return "text-green-600";
   if (rate >= 40) return "text-amber-600";
@@ -78,6 +84,35 @@ function readLocalDashboardData(week: string | null): LocalDailyDashboardData | 
   } catch {
     return null;
   }
+}
+
+function readRemoteErrorState(): RemoteDashboardErrorState | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(REMOTE_ERROR_STATE_KEY) ?? "null");
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRemoteErrorState(error: DashboardLoadError) {
+  localStorage.setItem(
+    REMOTE_ERROR_STATE_KEY,
+    JSON.stringify({
+      ...error,
+      failed_at: new Date().toISOString(),
+    }),
+  );
+}
+
+function clearRemoteErrorState() {
+  localStorage.removeItem(REMOTE_ERROR_STATE_KEY);
+}
+
+function isRemoteRetryCoolingDown(state: RemoteDashboardErrorState | null) {
+  if (!state?.failed_at) return false;
+  const failedAt = Date.parse(state.failed_at);
+  return Number.isFinite(failedAt) && Date.now() - failedAt < REMOTE_RETRY_MS;
 }
 
 function localToDashboardData(local: LocalDailyDashboardData): DashboardData {
@@ -146,17 +181,35 @@ export function WeeklyDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     const localDashboardData = readLocalDashboardData(week);
+    const remoteErrorState = readRemoteErrorState();
+
+    if (localDashboardData && isRemoteRetryCoolingDown(remoteErrorState)) {
+      const dashboardData = localToDashboardData(localDashboardData);
+      setLoadError({
+        message: remoteErrorState?.message ?? "원격 대시보드 재시도 대기 중",
+        source: remoteErrorState?.source,
+        status: remoteErrorState?.status,
+      });
+      if (dashboardData.week !== week) setWeek(dashboardData.week);
+      setData(dashboardData);
+      setReflectionForm({ went_well: "", to_improve: "" });
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch(week ? `/api/weekly-dashboard?week=${week}` : "/api/weekly-dashboard", {
         cache: "no-store",
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setLoadError({
+        const error = {
           message: typeof json?.error === "string" ? json.error : `HTTP ${res.status}`,
           source: typeof json?.source === "string" ? json.source : undefined,
           status: res.status,
-        });
+        };
+        setLoadError(error);
+        saveRemoteErrorState(error);
         if (localDashboardData) {
           const dashboardData = localToDashboardData(localDashboardData);
           if (dashboardData.week !== week) setWeek(dashboardData.week);
@@ -168,6 +221,7 @@ export function WeeklyDashboard() {
         return;
       }
       setLoadError(null);
+      clearRemoteErrorState();
       const dashboardData = mergeDashboardData(json as DashboardData, localDashboardData, !week);
       if (dashboardData.week !== week) setWeek(dashboardData.week);
       setData(dashboardData);
@@ -176,9 +230,11 @@ export function WeeklyDashboard() {
         to_improve: dashboardData.reflection?.to_improve ?? "",
       });
     } catch (error) {
-      setLoadError({
+      const dashboardError = {
         message: error instanceof Error ? error.message : "대시보드 데이터를 불러오지 못했습니다",
-      });
+      };
+      setLoadError(dashboardError);
+      saveRemoteErrorState(dashboardError);
       if (localDashboardData) {
         const dashboardData = localToDashboardData(localDashboardData);
         if (dashboardData.week !== week) setWeek(dashboardData.week);

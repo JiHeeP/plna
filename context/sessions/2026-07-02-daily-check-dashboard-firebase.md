@@ -202,3 +202,19 @@
   - localStorage daily backup 키 3종 생성 확인
   - `/api/local-daily-backup/sync`를 500으로 모킹해도 `/weekly-dashboard`에 `2026-W27` local backup 표시 확인
   - sync 실패 상태가 `plna_local_daily_backup_sync_state`에 기록되는 것 확인
+
+## 2026-07-02 추가 구현: dashboard remote read cooldown
+
+- weekly dashboard remote API 실패를 `plna_weekly_dashboard_remote_error_state`에 기록한다.
+- local daily backup이 있는 상태에서 remote 실패가 10분 이내이면 `/api/weekly-dashboard` 재호출을 건너뛰고 local fallback을 바로 표시한다.
+- local backup이 없으면 기존처럼 remote API를 호출한다. Firebase quota가 회복됐을 때 서버 데이터를 다시 읽을 수 있게 하기 위함이다.
+- remote API가 성공하면 cooldown 상태를 삭제한다.
+
+## 2026-07-02 추가 검증: dashboard cooldown
+
+- local browser smoke:
+  - `/api/weekly-dashboard`를 500으로 모킹
+  - localStorage에 `2026-07-01` daily backup 입력
+  - 첫 로드에서 local fallback 표시 확인
+  - reload 후 `/api/weekly-dashboard` 호출 횟수가 1회에 머문 것 확인
+  - `plna_weekly_dashboard_remote_error_state.failed_at` 기록 확인
