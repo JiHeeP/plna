@@ -251,3 +251,19 @@
 - `/api/local-daily-backup/sync`가 habit backup이 없을 때도 `daily_habits`를 읽던 동작을 제거했다.
 - journal/todo만 있는 local backup은 불필요한 Firestore read 없이 upsert를 시도할 수 있다.
 - habit backup이 있을 때만 `daily_habits`를 읽어 `name_en`에서 habit id로 매핑한다.
+
+## 2026-07-02 추가 구현: dashboard 기본 주차 daily 우선
+
+- 루트 앱과 `dashboard/` 앱의 `/api/weekly-dashboard` 기본 주차 선택을 변경했다.
+- 기존에는 daily 기록 최신 주차와 weekly goal/reflection 최신 주차를 모두 섞어서 가장 큰 주차를 골랐다.
+  - 이 경우 weekly goal만 있는 최신 주로 이동해 daily 기록이 있는 주차가 빈 화면처럼 보일 수 있다.
+- 변경 후에는 `habit_logs`, `daily_journals`, `daily_todos` 중 daily 기록이 있는 최신 주차를 먼저 선택한다.
+- daily 기록이 전혀 없을 때만 weekly goal/reflection 주차를 fallback으로 사용한다.
+- 기본 로드 시 weekly goal/reflection 최신 주차 조회는 daily 기록이 없을 때만 수행하므로 Firestore read도 줄어든다.
+
+## 2026-07-02 추가 검증: dashboard 기본 주차
+
+- `resolveLatestDashboardWeek` 순수 함수 테스트를 추가했다.
+  - daily 기록 주차가 있으면 더 최신 weekly goal/reflection 주차보다 daily 주차를 우선한다.
+  - `daily_todos`만 있어도 daily dashboard 기록으로 간주한다.
+  - daily 기록이 없을 때만 weekly goal/reflection을 사용한다.

@@ -1,5 +1,10 @@
 import { getFirebaseAdminApp } from "@/lib/firebase/server";
-import { getISOWeekString, getWeekDatesFromStr, toDateString } from "@/lib/utils";
+import {
+  getWeekDatesFromStr,
+  resolveLatestDailyDashboardWeek,
+  resolveLatestDashboardWeek,
+  toDateString,
+} from "@/lib/utils";
 import { getFirestore } from "firebase-admin/firestore";
 import { NextResponse, NextRequest } from "next/server";
 
@@ -76,15 +81,6 @@ function compareBy(...fields: string[]) {
   };
 }
 
-function dateToWeek(date: unknown) {
-  if (typeof date !== "string" || !date) return null;
-  return getISOWeekString(new Date(`${date}T00:00:00`));
-}
-
-function maxString(values: Array<string | null | undefined>) {
-  return values.filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
-}
-
 async function querySource<T>(source: string, query: () => Promise<T>) {
   try {
     return await query();
@@ -143,22 +139,29 @@ async function getActiveHabits(db: FirebaseFirestore.Firestore) {
 async function resolveDashboardWeek(db: FirebaseFirestore.Firestore, requestedWeek: string | null) {
   if (requestedWeek) return requestedWeek;
 
-  const [latestLogDate, latestJournalDate, latestTodoDate, latestGoalWeek, latestReflectionWeek] =
-    await Promise.all([
-      getLatestDate(db, "habit_logs"),
-      getLatestDate(db, "daily_journals"),
-      getLatestDate(db, "daily_todos"),
-      getLatestWeek(db, "weekly_goals"),
-      getLatestWeek(db, "weekly_reflections"),
-    ]);
+  const [latestLogDate, latestJournalDate, latestTodoDate] = await Promise.all([
+    getLatestDate(db, "habit_logs"),
+    getLatestDate(db, "daily_journals"),
+    getLatestDate(db, "daily_todos"),
+  ]);
 
-  return maxString([
-    dateToWeek(latestLogDate),
-    dateToWeek(latestJournalDate),
-    dateToWeek(latestTodoDate),
-    typeof latestGoalWeek === "string" ? latestGoalWeek : null,
-    typeof latestReflectionWeek === "string" ? latestReflectionWeek : null,
-  ]) ?? getISOWeekString(new Date());
+  const latestDailyWeek = resolveLatestDailyDashboardWeek({
+    latestLogDate: typeof latestLogDate === "string" ? latestLogDate : null,
+    latestJournalDate: typeof latestJournalDate === "string" ? latestJournalDate : null,
+    latestTodoDate: typeof latestTodoDate === "string" ? latestTodoDate : null,
+  });
+
+  if (latestDailyWeek) return latestDailyWeek;
+
+  const [latestGoalWeek, latestReflectionWeek] = await Promise.all([
+    getLatestWeek(db, "weekly_goals"),
+    getLatestWeek(db, "weekly_reflections"),
+  ]);
+
+  return resolveLatestDashboardWeek({
+    latestGoalWeek: typeof latestGoalWeek === "string" ? latestGoalWeek : null,
+    latestReflectionWeek: typeof latestReflectionWeek === "string" ? latestReflectionWeek : null,
+  });
 }
 
 function errorResponse(error: unknown, req: NextRequest) {

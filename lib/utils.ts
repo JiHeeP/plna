@@ -55,3 +55,53 @@ export function formatWeekLabel(weekStr: string): string {
 export function toDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function maxString(values: Array<string | null | undefined>) {
+  return values.filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+}
+
+function dateToWeek(date: string | null | undefined) {
+  return date ? getISOWeekString(new Date(`${date}T00:00:00`)) : null;
+}
+
+export function resolveLatestDailyDashboardWeek({
+  latestLogDate,
+  latestJournalDate,
+  latestTodoDate,
+}: {
+  latestLogDate?: string | null;
+  latestJournalDate?: string | null;
+  latestTodoDate?: string | null;
+}) {
+  return maxString([
+    dateToWeek(latestLogDate),
+    dateToWeek(latestJournalDate),
+    dateToWeek(latestTodoDate),
+  ]);
+}
+
+export function resolveLatestDashboardWeek({
+  latestLogDate,
+  latestJournalDate,
+  latestTodoDate,
+  latestGoalWeek,
+  latestReflectionWeek,
+  fallbackDate = new Date(),
+}: {
+  latestLogDate?: string | null;
+  latestJournalDate?: string | null;
+  latestTodoDate?: string | null;
+  latestGoalWeek?: string | null;
+  latestReflectionWeek?: string | null;
+  fallbackDate?: Date;
+}) {
+  const latestDailyWeek = resolveLatestDailyDashboardWeek({
+    latestLogDate,
+    latestJournalDate,
+    latestTodoDate,
+  });
+
+  if (latestDailyWeek) return latestDailyWeek;
+
+  return maxString([latestGoalWeek, latestReflectionWeek]) ?? getISOWeekString(fallbackDate);
+}
