@@ -50,14 +50,12 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const saveLocal = useCallback(
     (updatedForm: typeof form) => {
       localStorage.setItem(`diary_${targetDate}`, JSON.stringify(updatedForm));
+      localStorage.removeItem(`journal_${targetDate}`);
     },
     [targetDate],
   );
 
-  const readLocalDiary = useCallback(() => {
-    const saved = localStorage.getItem(`diary_${targetDate}`);
-    if (!saved) return null;
-
+  const parseStoredForm = useCallback((saved: string) => {
     try {
       const parsed = JSON.parse(saved) as Partial<typeof form>;
       if (!parsed || typeof parsed !== "object") return null;
@@ -69,7 +67,22 @@ export function DailyJournalCard({ date }: { date?: string }) {
     } catch {
       return null;
     }
-  }, [targetDate]);
+  }, []);
+
+  const readLocalDiary = useCallback(() => {
+    const saved = localStorage.getItem(`diary_${targetDate}`);
+    if (saved) return parseStoredForm(saved);
+
+    const legacySaved = localStorage.getItem(`journal_${targetDate}`);
+    if (!legacySaved) return null;
+
+    const legacyForm = parseStoredForm(legacySaved);
+    if (legacyForm) {
+      localStorage.setItem(`diary_${targetDate}`, JSON.stringify(legacyForm));
+      localStorage.removeItem(`journal_${targetDate}`);
+    }
+    return legacyForm;
+  }, [parseStoredForm, targetDate]);
 
   const loadDiary = useCallback(async () => {
     setLoading(true);
@@ -194,7 +207,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base lg:text-lg">오늘의 기록</CardTitle>
+          <CardTitle className="text-base lg:text-lg">오늘의 일기</CardTitle>
           {saving && (
             <span className="text-xs text-muted-foreground">저장 중...</span>
           )}
