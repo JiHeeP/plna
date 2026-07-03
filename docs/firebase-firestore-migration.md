@@ -59,6 +59,10 @@ npm run migrate:supabase-to-firestore
 - Supabase에서 삭제된 행을 Firestore에서 자동 삭제하지는 않습니다.
 - 기본 이전 대상은 `affirmations`, `daily_habits`, `habit_logs`, `conversations`, `conversation_topics`, `milestones`, `numeric_targets`, `numeric_logs`, `kakao_tokens`, `notification_settings`, `ops_backlog_items`, `daily_todos`, `daily_journals`, `monthly_goals`, `weekly_goals`, `weekly_reflections`, `quarterly_goals`, `sub_goals`입니다.
 
+### 대시보드와 분리된 오늘의 일기
+
+`daily_diaries`는 오늘 화면의 "오늘의 일기" 전용 컬렉션입니다. 화면 입력은 기존 3칸 저널 형태(`went_well`, `to_improve`, `accomplishments`)를 유지하지만, 주간 대시보드, 인사이트, 로컬 daily 백업 sync는 이 컬렉션을 읽지 않습니다. 대시보드에 노출되는 일일 요약은 기존 `daily_journals`, `daily_todos`, `habit_logs`만 사용합니다.
+
 ## 5. 이전 후 점검
 
 1. Firestore 콘솔에서 컬렉션별 문서 수를 확인합니다.

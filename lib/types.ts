@@ -101,6 +101,16 @@ export interface DailyJournal {
   updated_at: string;
 }
 
+export interface DailyDiary {
+  id: string;
+  date: string;
+  accomplishments: string;
+  to_improve: string;
+  went_well: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MonthlyGoal {
   id: string;
   month: string; // 'YYYY-MM'

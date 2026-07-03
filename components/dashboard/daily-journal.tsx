@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
-import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
-import type { DailyJournal } from "@/lib/types";
+import type { DailyDiary } from "@/lib/types";
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -49,17 +48,14 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
   const saveLocal = useCallback(
-    (updatedForm: typeof form, notify = true) => {
-      localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
-      if (notify) {
-        window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
-      }
+    (updatedForm: typeof form) => {
+      localStorage.setItem(`diary_${targetDate}`, JSON.stringify(updatedForm));
     },
     [targetDate],
   );
 
-  const readLocalJournal = useCallback(() => {
-    const saved = localStorage.getItem(`journal_${targetDate}`);
+  const readLocalDiary = useCallback(() => {
+    const saved = localStorage.getItem(`diary_${targetDate}`);
     if (!saved) return null;
 
     try {
@@ -75,18 +71,18 @@ export function DailyJournalCard({ date }: { date?: string }) {
     }
   }, [targetDate]);
 
-  const loadJournal = useCallback(async () => {
+  const loadDiary = useCallback(async () => {
     setLoading(true);
     const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
 
     try {
-      const response = await fetch(`/api/journal?date=${encodeURIComponent(targetDate)}`, {
+      const response = await fetch(`/api/diary?date=${encodeURIComponent(targetDate)}`, {
         cache: "no-store",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const data = (await response.json()) as DailyJournal | null;
-      const localForm = readLocalJournal();
+      const data = (await response.json()) as DailyDiary | null;
+      const localForm = readLocalDiary();
       if (localForm !== null) {
         setForm(localForm);
       } else if (data) {
@@ -97,7 +93,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
         };
         setForm(remoteForm);
         if (remoteForm.accomplishments || remoteForm.to_improve || remoteForm.went_well) {
-          saveLocal(remoteForm, false);
+          saveLocal(remoteForm);
         }
       } else {
         setForm(emptyForm);
@@ -105,18 +101,18 @@ export function DailyJournalCard({ date }: { date?: string }) {
       setUseLocal(false);
     } catch {
       setUseLocal(true);
-      setForm(readLocalJournal() ?? emptyForm);
+      setForm(readLocalDiary() ?? emptyForm);
     } finally {
       setLoading(false);
     }
-  }, [readLocalJournal, saveLocal, targetDate]);
+  }, [readLocalDiary, saveLocal, targetDate]);
 
   useEffect(() => {
     // 날짜 전환 시 이전 날짜의 대기 중 저장 타이머 취소
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveStatus("idle");
-    loadJournal();
-  }, [loadJournal]);
+    loadDiary();
+  }, [loadDiary]);
 
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
@@ -137,17 +133,16 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const saveJournal = useCallback(
     async (updatedForm: typeof form) => {
       setSaving(true);
-      saveLocal(updatedForm, false);
+      saveLocal(updatedForm);
 
       if (useLocal) {
-        saveLocal(updatedForm);
         setSaving(false);
         setSaveStatus("saved");
         return;
       }
 
       try {
-        const response = await fetch("/api/journal", {
+        const response = await fetch("/api/diary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -160,7 +155,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
         saveLocal(updatedForm);
         setSaveStatus("saved");
       } catch (err) {
-        console.error("저널 저장 실패:", err);
+        console.error("일기 저장 실패:", err);
         setUseLocal(true);
         saveLocal(updatedForm);
         setSaveStatus("error");
@@ -174,7 +169,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const handleChange = (key: keyof typeof form, value: string) => {
     const updated = { ...form, [key]: value };
     setForm(updated);
-    saveLocal(updated, false);
+    saveLocal(updated);
 
     // 자동 저장 (1초 디바운스)
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -207,7 +202,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
             <span className="text-xs text-green-600">저장됨</span>
           )}
           {!saving && saveStatus === "error" && (
-            <span className="text-xs text-red-500">저장 실패 (로컬에 백업됨)</span>
+            <span className="text-xs text-red-500">저장 실패 (기기에 보관됨)</span>
           )}
         </div>
       </CardHeader>

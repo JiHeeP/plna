@@ -14,6 +14,15 @@ interface DailyJournalInput {
   updated_at?: string;
 }
 
+interface DailyDiaryInput {
+  date: string;
+  accomplishments?: string | null;
+  to_improve?: string | null;
+  went_well?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface DailyTodoInput {
   id?: string | null;
   date: string;
@@ -73,6 +82,11 @@ export function dailyJournalDocId(date: string) {
   return `daily_journals_${date}`;
 }
 
+export function dailyDiaryDocId(date: string) {
+  assertDate(date);
+  return `daily_diaries_${date}`;
+}
+
 export function habitLogDocId(habitId: string, date: string) {
   assertDate(date);
   return `habit_logs_${docIdSegment(habitId)}_${date}`;
@@ -103,6 +117,24 @@ export async function writeDailyJournal(input: DailyJournalInput, db?: DailyWrit
   };
 
   await dbOrDefault(db).collection("daily_journals").doc(id).set(row, { merge: true });
+  return row;
+}
+
+export async function writeDailyDiary(input: DailyDiaryInput, db?: DailyWriteDb) {
+  assertDate(input.date);
+  const timestamp = input.updated_at ?? nowIso();
+  const id = dailyDiaryDocId(input.date);
+  const row = {
+    id,
+    date: input.date,
+    accomplishments: input.accomplishments ?? "",
+    to_improve: input.to_improve ?? "",
+    went_well: input.went_well ?? "",
+    created_at: input.created_at ?? timestamp,
+    updated_at: timestamp,
+  };
+
+  await dbOrDefault(db).collection("daily_diaries").doc(id).set(row, { merge: true });
   return row;
 }
 

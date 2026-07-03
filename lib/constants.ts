@@ -20,10 +20,9 @@ export const DEFAULT_HABITS = [
   { name: "기상 6시", name_en: "wake_up", category: "health", sort_order: 1 },
   { name: "운동 30분", name_en: "exercise", category: "health", sort_order: 2 },
   { name: "명상 5분", name_en: "meditation", category: "health", sort_order: 3 },
-  { name: "연구대회 2시간", name_en: "research", category: "career", sort_order: 4 },
+  { name: "문해력 증진 방법 연구", name_en: "literacy_research", category: "career", sort_order: 4 },
   { name: "코딩/AI 다루기", name_en: "coding", category: "assets", sort_order: 5 },
-  { name: "대화 기록", name_en: "conversation_log", category: "identity", sort_order: 6 },
-  { name: "책 읽기", name_en: "reading", category: "identity", sort_order: 7 },
+  { name: "책 읽기", name_en: "reading", category: "identity", sort_order: 6 },
 ] as const;
 
 export const AFFIRMATIONS = [
