@@ -16,9 +16,7 @@ interface DailyJournalInput {
 
 interface DailyDiaryInput {
   date: string;
-  accomplishments?: string | null;
-  to_improve?: string | null;
-  went_well?: string | null;
+  content?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -127,9 +125,7 @@ export async function writeDailyDiary(input: DailyDiaryInput, db?: DailyWriteDb)
   const row = {
     id,
     date: input.date,
-    accomplishments: input.accomplishments ?? "",
-    to_improve: input.to_improve ?? "",
-    went_well: input.went_well ?? "",
+    content: input.content ?? "",
     created_at: input.created_at ?? timestamp,
     updated_at: timestamp,
   };

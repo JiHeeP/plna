@@ -8,8 +8,8 @@
 
 | 대상 | 영향 수준 | 상세 |
 |---|---|---|
-| `components/dashboard/daily-journal.tsx` | 높음 | 오늘 화면의 3칸 기록 입력 UI는 유지하고 저장 API만 바꾼다. |
-| `app/api/diary/route.ts` | 신규 | 대시보드가 읽지 않는 별도 일기 API를 만든다. |
+| `components/dashboard/daily-journal.tsx` | 높음 | 오늘 화면의 3칸 `오늘의 기록`은 기존 저장/API를 유지하고, 그 아래 새 `오늘의 일기` 단일 입력칸을 추가한다. |
+| `app/api/diary/route.ts` | 신규 | 대시보드가 읽지 않는 별도 일기 단일 입력 API를 만든다. |
 | `lib/firebase/daily-record-writes.ts` | 중간 | `daily_diaries` 직접 쓰기 helper를 추가한다. 기존 `daily_journals`는 유지한다. |
 | `lib/types.ts` | 낮음 | `DailyDiary` 타입을 추가한다. |
 | `lib/constants.ts` | 낮음 | 로컬 fallback 기본 습관에서 연구대회/대화 기록 항목을 정리한다. |
@@ -29,7 +29,7 @@
 | 연결 관계 | ✅ | 화면은 새 API를 호출하고, API는 Firebase helper만 호출한다. 대시보드는 새 컬렉션을 참조하지 않는다. |
 | 데이터 모양 | ✅ | 기존 컬렉션 스키마를 바꾸지 않고 `daily_diaries`를 새로 추가한다. |
 | 과거 기록 | ⚠️ | `daily_habits`의 활성 목록은 전역이라 대시보드의 과거 주차 습관 총수 해석이 바뀔 수 있다. 기존 습관 문서는 비활성화만 하고 로그 삭제는 2026-06-29 이후로 제한한다. |
-| 사용자 흐름 | ✅ | 오늘 화면에서 3칸 일기 저장은 유지되며, localStorage 키를 `diary_YYYY-MM-DD`로 분리해 로컬 백업 sync가 `daily_journals`로 밀어 넣지 않는다. |
+| 사용자 흐름 | ✅ | 오늘 화면에서 기존 3칸 기록 저장은 유지되며, 새 일기 입력은 localStorage 키를 `diary_note_YYYY-MM-DD`로 분리해 로컬 백업 sync가 `daily_journals`로 밀어 넣지 않는다. |
 | 되돌리기 어려움 | ⚠️ | 실제 Firestore 로그 삭제가 포함된다. 삭제 전 대상 id/date를 확인하고, 사용자 요구 범위인 2026-06-29 이후 `연구대회 2시간`, `대화 기록` 로그만 삭제한다. |
 
 ## 기술 요구사항
@@ -38,7 +38,7 @@
 |---|---|---|---|---|
 | 1 | NEW_SERVICE | `lib/firebase/daily-record-writes.ts` | `daily_diaries_YYYY-MM-DD` 문서 id와 `writeDailyDiary` 추가 | - |
 | 2 | NEW_SERVICE | `app/api/diary/route.ts` | 날짜별 일기 조회/저장 API 추가. `daily_journals` 미사용 | 1 |
-| 3 | NEW_COMPONENT | `components/dashboard/daily-journal.tsx` | 오늘의 기록 UI를 3칸 저널 그대로 유지하고 `/api/diary`, `diary_` localStorage 키 사용 | 2 |
+| 3 | NEW_COMPONENT | `components/dashboard/daily-journal.tsx` | `오늘의 기록` 3칸은 `/api/journal`, `journal_` localStorage 키를 유지하고, 그 아래 `오늘의 일기` 단일칸은 `/api/diary`, `diary_note_` localStorage 키 사용 | 2 |
 | 4 | DATA_EDIT | `lib/constants.ts` | fallback 기본 습관에서 `research`를 새 이름으로 바꾸고 `conversation_log` 제거 | - |
 | 5 | DATA_EDIT | Firestore | `연구대회 2시간`, `대화 기록` 비활성화, `문해력 증진 방법 연구` 활성 습관 추가, 2026-06-29 이후 두 기존 습관 로그 삭제 | 4 |
 | 6 | BUG_FIX/TEST | `tests/daily-record-writes.test.ts` | 새 일기 helper가 read 없이 `daily_diaries`에 쓰는지 검증 | 1 |
@@ -47,4 +47,4 @@
 ## 제시한 대안
 
 - 기존 `daily_journals`에 `dashboard_visible: false`를 추가하는 방식은 대시보드/인사이트/백업 sync 전반을 같이 바꿔야 해서 위험하다.
-- 별도 `daily_diaries` 컬렉션과 `diary_` localStorage 키를 쓰는 방식이 가장 작고 되돌리기 쉽다.
+- 별도 `daily_diaries` 컬렉션과 `diary_note_` localStorage 키를 쓰는 방식이 가장 작고 되돌리기 쉽다.

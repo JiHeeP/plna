@@ -77,9 +77,7 @@ describe("daily record direct Firestore writes", () => {
 
     const row = await writeDailyDiary({
       date: "2026-07-03",
-      accomplishments: "Kept this out of the weekly dashboard",
-      went_well: "Still saved as a three-field diary",
-      to_improve: "Do not connect it to the weekly dashboard",
+      content: "Kept this out of the weekly dashboard",
       updated_at: "2026-07-03T12:00:00.000Z",
     }, db);
 
@@ -90,9 +88,7 @@ describe("daily record direct Firestore writes", () => {
       data: {
         id: "daily_diaries_2026-07-03",
         date: "2026-07-03",
-        accomplishments: "Kept this out of the weekly dashboard",
-        to_improve: "Do not connect it to the weekly dashboard",
-        went_well: "Still saved as a three-field diary",
+        content: "Kept this out of the weekly dashboard",
         created_at: "2026-07-03T12:00:00.000Z",
         updated_at: "2026-07-03T12:00:00.000Z",
       },

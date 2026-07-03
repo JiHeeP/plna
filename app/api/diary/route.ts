@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirestore, type DocumentData, type Firestore } from "firebase-admin/firestore";
+import { getFirestore, type DocumentData } from "firebase-admin/firestore";
 
-import { dailyDiaryDocId, dailyJournalDocId, writeDailyDiary } from "@/lib/firebase/daily-record-writes";
+import { dailyDiaryDocId, writeDailyDiary } from "@/lib/firebase/daily-record-writes";
 import { getFirebaseAdminApp } from "@/lib/firebase/server";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -24,20 +24,10 @@ function normalizeDiaryRow(data: DocumentData | undefined) {
   return {
     id: String(data.id ?? ""),
     date: String(data.date ?? ""),
-    accomplishments: String(data.accomplishments ?? ""),
-    to_improve: String(data.to_improve ?? ""),
-    went_well: String(data.went_well ?? ""),
+    content: String(data.content ?? ""),
     created_at: String(data.created_at ?? ""),
     updated_at: String(data.updated_at ?? ""),
   };
-}
-
-async function getLegacyJournalRow(db: Firestore, targetDate: string) {
-  const deterministicSnapshot = await db.collection("daily_journals").doc(dailyJournalDocId(targetDate)).get();
-  if (deterministicSnapshot.exists) return deterministicSnapshot.data();
-
-  const snapshot = await db.collection("daily_journals").where("date", "==", targetDate).limit(1).get();
-  return snapshot.docs[0]?.data();
 }
 
 export async function GET(request: NextRequest) {
@@ -46,7 +36,7 @@ export async function GET(request: NextRequest) {
     const db = getFirestore(getFirebaseAdminApp());
     const snapshot = await db.collection("daily_diaries").doc(dailyDiaryDocId(targetDate)).get();
 
-    return NextResponse.json(normalizeDiaryRow(snapshot.data() ?? await getLegacyJournalRow(db, targetDate)));
+    return NextResponse.json(normalizeDiaryRow(snapshot.data()));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
@@ -59,9 +49,7 @@ export async function POST(request: NextRequest) {
     const targetDate = normalizeDate(typeof body.date === "string" ? body.date : null);
     const data = await writeDailyDiary({
       date: targetDate,
-      accomplishments: typeof body.accomplishments === "string" ? body.accomplishments : "",
-      to_improve: typeof body.to_improve === "string" ? body.to_improve : "",
-      went_well: typeof body.went_well === "string" ? body.went_well : "",
+      content: typeof body.content === "string" ? body.content : "",
     });
 
     return NextResponse.json(data);

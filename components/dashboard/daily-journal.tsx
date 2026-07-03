@@ -4,14 +4,15 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, Star, Save } from "lucide-react";
-import type { DailyDiary } from "@/lib/types";
+import { BookOpen, NotebookPen, TrendingUp, Star, Save } from "lucide-react";
+import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
+import type { DailyDiary, DailyJournal } from "@/lib/types";
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const FIELDS = [
+const JOURNAL_FIELDS = [
   {
     key: "went_well" as const,
     label: "잘한 일",
@@ -32,61 +33,117 @@ const FIELDS = [
   },
 ] as const;
 
+type JournalForm = {
+  accomplishments: string;
+  to_improve: string;
+  went_well: string;
+};
+
+const EMPTY_JOURNAL_FORM: JournalForm = {
+  accomplishments: "",
+  to_improve: "",
+  went_well: "",
+};
+
+function parseStoredJournal(saved: string) {
+  try {
+    const parsed = JSON.parse(saved) as Partial<JournalForm>;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      accomplishments: typeof parsed.accomplishments === "string" ? parsed.accomplishments : "",
+      to_improve: typeof parsed.to_improve === "string" ? parsed.to_improve : "",
+      went_well: typeof parsed.went_well === "string" ? parsed.went_well : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function DailyJournalCard({ date }: { date?: string }) {
-  const [form, setForm] = useState({
-    accomplishments: "",
-    to_improve: "",
-    went_well: "",
-  });
+  const [journalForm, setJournalForm] = useState<JournalForm>(EMPTY_JOURNAL_FORM);
+  const [diaryContent, setDiaryContent] = useState("");
   const [loading, setLoading] = useState(true);
-  const [useLocal, setUseLocal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [useJournalLocal, setUseJournalLocal] = useState(false);
+  const [useDiaryLocal, setUseDiaryLocal] = useState(false);
+  const [journalSaving, setJournalSaving] = useState(false);
+  const [diarySaving, setDiarySaving] = useState(false);
+  const [journalSaveStatus, setJournalSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [diarySaveStatus, setDiarySaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const journalSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const diarySaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const journalStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const diaryStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
-  const saveLocal = useCallback(
-    (updatedForm: typeof form) => {
-      localStorage.setItem(`diary_${targetDate}`, JSON.stringify(updatedForm));
-      localStorage.removeItem(`journal_${targetDate}`);
+  const saveLocalJournal = useCallback(
+    (updatedForm: JournalForm, notify = true) => {
+      localStorage.setItem(`journal_${targetDate}`, JSON.stringify(updatedForm));
+      localStorage.removeItem(`diary_${targetDate}`);
+      if (notify) {
+        window.dispatchEvent(new CustomEvent(LOCAL_DAILY_BACKUP_CHANGED_EVENT));
+      }
     },
     [targetDate],
   );
 
-  const parseStoredForm = useCallback((saved: string) => {
-    try {
-      const parsed = JSON.parse(saved) as Partial<typeof form>;
-      if (!parsed || typeof parsed !== "object") return null;
-      return {
-        accomplishments: typeof parsed.accomplishments === "string" ? parsed.accomplishments : "",
-        to_improve: typeof parsed.to_improve === "string" ? parsed.to_improve : "",
-        went_well: typeof parsed.went_well === "string" ? parsed.went_well : "",
-      };
-    } catch {
-      return null;
+  const saveLocalDiary = useCallback(
+    (content: string) => {
+      localStorage.setItem(`diary_note_${targetDate}`, content);
+    },
+    [targetDate],
+  );
+
+  const readLocalJournal = useCallback(() => {
+    const saved = localStorage.getItem(`journal_${targetDate}`);
+    if (saved) return parseStoredJournal(saved);
+
+    const mistakenDiarySaved = localStorage.getItem(`diary_${targetDate}`);
+    if (!mistakenDiarySaved) return null;
+
+    const migratedForm = parseStoredJournal(mistakenDiarySaved);
+    if (migratedForm) {
+      saveLocalJournal(migratedForm, false);
     }
-  }, []);
+    return migratedForm;
+  }, [saveLocalJournal, targetDate]);
 
   const readLocalDiary = useCallback(() => {
-    const saved = localStorage.getItem(`diary_${targetDate}`);
-    if (saved) return parseStoredForm(saved);
+    const saved = localStorage.getItem(`diary_note_${targetDate}`);
+    return saved ?? null;
+  }, [targetDate]);
 
-    const legacySaved = localStorage.getItem(`journal_${targetDate}`);
-    if (!legacySaved) return null;
-
-    const legacyForm = parseStoredForm(legacySaved);
-    if (legacyForm) {
-      localStorage.setItem(`diary_${targetDate}`, JSON.stringify(legacyForm));
-      localStorage.removeItem(`journal_${targetDate}`);
-    }
-    return legacyForm;
-  }, [parseStoredForm, targetDate]);
-
-  const loadDiary = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const emptyForm = { accomplishments: "", to_improve: "", went_well: "" };
+
+    try {
+      const response = await fetch(`/api/journal?date=${encodeURIComponent(targetDate)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const data = (await response.json()) as DailyJournal | null;
+      const localForm = readLocalJournal();
+      if (localForm !== null) {
+        setJournalForm(localForm);
+      } else if (data) {
+        const remoteForm = {
+          accomplishments: data.accomplishments ?? "",
+          to_improve: data.to_improve ?? "",
+          went_well: data.went_well ?? "",
+        };
+        setJournalForm(remoteForm);
+        if (remoteForm.accomplishments || remoteForm.to_improve || remoteForm.went_well) {
+          saveLocalJournal(remoteForm, false);
+        }
+      } else {
+        setJournalForm(EMPTY_JOURNAL_FORM);
+      }
+      setUseJournalLocal(false);
+    } catch {
+      setUseJournalLocal(true);
+      setJournalForm(readLocalJournal() ?? EMPTY_JOURNAL_FORM);
+    }
 
     try {
       const response = await fetch(`/api/diary?date=${encodeURIComponent(targetDate)}`, {
@@ -95,67 +152,70 @@ export function DailyJournalCard({ date }: { date?: string }) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = (await response.json()) as DailyDiary | null;
-      const localForm = readLocalDiary();
-      if (localForm !== null) {
-        setForm(localForm);
-      } else if (data) {
-        const remoteForm = {
-          accomplishments: data.accomplishments ?? "",
-          to_improve: data.to_improve ?? "",
-          went_well: data.went_well ?? "",
-        };
-        setForm(remoteForm);
-        if (remoteForm.accomplishments || remoteForm.to_improve || remoteForm.went_well) {
-          saveLocal(remoteForm);
-        }
+      const localContent = readLocalDiary();
+      if (localContent !== null) {
+        setDiaryContent(localContent);
       } else {
-        setForm(emptyForm);
+        const remoteContent = data?.content ?? "";
+        setDiaryContent(remoteContent);
+        if (remoteContent) {
+          saveLocalDiary(remoteContent);
+        }
       }
-      setUseLocal(false);
+      setUseDiaryLocal(false);
     } catch {
-      setUseLocal(true);
-      setForm(readLocalDiary() ?? emptyForm);
+      setUseDiaryLocal(true);
+      setDiaryContent(readLocalDiary() ?? "");
     } finally {
       setLoading(false);
     }
-  }, [readLocalDiary, saveLocal, targetDate]);
+  }, [readLocalDiary, readLocalJournal, saveLocalDiary, saveLocalJournal, targetDate]);
 
   useEffect(() => {
-    // 날짜 전환 시 이전 날짜의 대기 중 저장 타이머 취소
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaveStatus("idle");
-    loadDiary();
-  }, [loadDiary]);
+    if (journalSaveTimer.current) clearTimeout(journalSaveTimer.current);
+    if (diarySaveTimer.current) clearTimeout(diarySaveTimer.current);
+    setJournalSaveStatus("idle");
+    setDiarySaveStatus("idle");
+    loadData();
+  }, [loadData]);
 
-  // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (statusTimer.current) clearTimeout(statusTimer.current);
+      if (journalSaveTimer.current) clearTimeout(journalSaveTimer.current);
+      if (diarySaveTimer.current) clearTimeout(diarySaveTimer.current);
+      if (journalStatusTimer.current) clearTimeout(journalStatusTimer.current);
+      if (diaryStatusTimer.current) clearTimeout(diaryStatusTimer.current);
     };
   }, []);
 
-  // 저장 상태 표시 후 2초 뒤 자동 숨김
   useEffect(() => {
-    if (saveStatus !== "idle") {
-      if (statusTimer.current) clearTimeout(statusTimer.current);
-      statusTimer.current = setTimeout(() => setSaveStatus("idle"), 2000);
+    if (journalSaveStatus !== "idle") {
+      if (journalStatusTimer.current) clearTimeout(journalStatusTimer.current);
+      journalStatusTimer.current = setTimeout(() => setJournalSaveStatus("idle"), 2000);
     }
-  }, [saveStatus]);
+  }, [journalSaveStatus]);
+
+  useEffect(() => {
+    if (diarySaveStatus !== "idle") {
+      if (diaryStatusTimer.current) clearTimeout(diaryStatusTimer.current);
+      diaryStatusTimer.current = setTimeout(() => setDiarySaveStatus("idle"), 2000);
+    }
+  }, [diarySaveStatus]);
 
   const saveJournal = useCallback(
-    async (updatedForm: typeof form) => {
-      setSaving(true);
-      saveLocal(updatedForm);
+    async (updatedForm: JournalForm) => {
+      setJournalSaving(true);
+      saveLocalJournal(updatedForm, false);
 
-      if (useLocal) {
-        setSaving(false);
-        setSaveStatus("saved");
+      if (useJournalLocal) {
+        saveLocalJournal(updatedForm);
+        setJournalSaving(false);
+        setJournalSaveStatus("saved");
         return;
       }
 
       try {
-        const response = await fetch("/api/diary", {
+        const response = await fetch("/api/journal", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -165,28 +225,71 @@ export function DailyJournalCard({ date }: { date?: string }) {
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        saveLocal(updatedForm);
-        setSaveStatus("saved");
+        saveLocalJournal(updatedForm);
+        setJournalSaveStatus("saved");
       } catch (err) {
-        console.error("일기 저장 실패:", err);
-        setUseLocal(true);
-        saveLocal(updatedForm);
-        setSaveStatus("error");
+        console.error("저널 저장 실패:", err);
+        setUseJournalLocal(true);
+        saveLocalJournal(updatedForm);
+        setJournalSaveStatus("error");
       } finally {
-        setSaving(false);
+        setJournalSaving(false);
       }
     },
-    [saveLocal, targetDate, useLocal]
+    [saveLocalJournal, targetDate, useJournalLocal],
   );
 
-  const handleChange = (key: keyof typeof form, value: string) => {
-    const updated = { ...form, [key]: value };
-    setForm(updated);
-    saveLocal(updated);
+  const saveDiary = useCallback(
+    async (content: string) => {
+      setDiarySaving(true);
+      saveLocalDiary(content);
 
-    // 자동 저장 (1초 디바운스)
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => saveJournal(updated), 1000);
+      if (useDiaryLocal) {
+        setDiarySaving(false);
+        setDiarySaveStatus("saved");
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/diary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: targetDate,
+            content,
+          }),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        saveLocalDiary(content);
+        setDiarySaveStatus("saved");
+      } catch (err) {
+        console.error("일기 저장 실패:", err);
+        setUseDiaryLocal(true);
+        saveLocalDiary(content);
+        setDiarySaveStatus("error");
+      } finally {
+        setDiarySaving(false);
+      }
+    },
+    [saveLocalDiary, targetDate, useDiaryLocal],
+  );
+
+  const handleJournalChange = (key: keyof JournalForm, value: string) => {
+    const updated = { ...journalForm, [key]: value };
+    setJournalForm(updated);
+    saveLocalJournal(updated, false);
+
+    if (journalSaveTimer.current) clearTimeout(journalSaveTimer.current);
+    journalSaveTimer.current = setTimeout(() => saveJournal(updated), 1000);
+  };
+
+  const handleDiaryChange = (value: string) => {
+    setDiaryContent(value);
+    saveLocalDiary(value);
+
+    if (diarySaveTimer.current) clearTimeout(diarySaveTimer.current);
+    diarySaveTimer.current = setTimeout(() => saveDiary(value), 1000);
   };
 
   if (loading) {
@@ -194,7 +297,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
       <Card>
         <CardContent className="py-6">
           <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-16 bg-muted animate-pulse rounded" />
             ))}
           </div>
@@ -207,28 +310,28 @@ export function DailyJournalCard({ date }: { date?: string }) {
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base lg:text-lg">오늘의 일기</CardTitle>
-          {saving && (
+          <CardTitle className="text-base lg:text-lg">오늘의 기록</CardTitle>
+          {journalSaving && (
             <span className="text-xs text-muted-foreground">저장 중...</span>
           )}
-          {!saving && saveStatus === "saved" && (
+          {!journalSaving && journalSaveStatus === "saved" && (
             <span className="text-xs text-green-600">저장됨</span>
           )}
-          {!saving && saveStatus === "error" && (
-            <span className="text-xs text-red-500">저장 실패 (기기에 보관됨)</span>
+          {!journalSaving && journalSaveStatus === "error" && (
+            <span className="text-xs text-red-500">저장 실패 (로컬에 백업됨)</span>
           )}
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-4">
-        {FIELDS.map(({ key, label, icon: Icon, placeholder }) => (
+        {JOURNAL_FIELDS.map(({ key, label, icon: Icon, placeholder }) => (
           <div key={key} className="space-y-1.5">
             <label className="flex items-center gap-2 text-sm lg:text-base font-medium">
               <Icon className="h-4 w-4 text-muted-foreground" />
               {label}
             </label>
             <Textarea
-              value={form[key]}
-              onChange={(e) => handleChange(key, e.target.value)}
+              value={journalForm[key]}
+              onChange={(e) => handleJournalChange(key, e.target.value)}
               placeholder={placeholder}
               className="min-h-[72px] text-sm lg:text-base resize-none"
             />
@@ -236,16 +339,53 @@ export function DailyJournalCard({ date }: { date?: string }) {
         ))}
         <Button
           onClick={() => {
-            if (saveTimer.current) clearTimeout(saveTimer.current);
-            saveJournal(form);
+            if (journalSaveTimer.current) clearTimeout(journalSaveTimer.current);
+            saveJournal(journalForm);
           }}
-          disabled={saving}
+          disabled={journalSaving}
           className="w-full"
           size="sm"
         >
           <Save className="h-4 w-4 mr-2" />
-          {saving ? "저장 중..." : "저장하기"}
+          {journalSaving ? "저장 중..." : "기록 저장하기"}
         </Button>
+
+        <div className="border-t pt-4 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm lg:text-base font-medium">
+              <NotebookPen className="h-4 w-4 text-muted-foreground" />
+              오늘의 일기
+            </label>
+            {diarySaving && (
+              <span className="text-xs text-muted-foreground">저장 중...</span>
+            )}
+            {!diarySaving && diarySaveStatus === "saved" && (
+              <span className="text-xs text-green-600">저장됨</span>
+            )}
+            {!diarySaving && diarySaveStatus === "error" && (
+              <span className="text-xs text-red-500">저장 실패 (기기에 보관됨)</span>
+            )}
+          </div>
+          <Textarea
+            value={diaryContent}
+            onChange={(e) => handleDiaryChange(e.target.value)}
+            placeholder="대시보드와 분리해서 남길 오늘의 일기를 적어보세요."
+            className="min-h-[120px] text-sm lg:text-base resize-none"
+          />
+          <Button
+            onClick={() => {
+              if (diarySaveTimer.current) clearTimeout(diarySaveTimer.current);
+              saveDiary(diaryContent);
+            }}
+            disabled={diarySaving}
+            className="w-full"
+            size="sm"
+            variant="outline"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {diarySaving ? "저장 중..." : "일기 저장하기"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

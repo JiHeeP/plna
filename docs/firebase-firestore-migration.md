@@ -61,7 +61,7 @@ npm run migrate:supabase-to-firestore
 
 ### 대시보드와 분리된 오늘의 일기
 
-`daily_diaries`는 오늘 화면의 "오늘의 일기" 전용 컬렉션입니다. 화면 입력은 기존 3칸 저널 형태(`went_well`, `to_improve`, `accomplishments`)를 유지하지만, 주간 대시보드, 인사이트, 로컬 daily 백업 sync는 이 컬렉션을 읽지 않습니다. 대시보드에 노출되는 일일 요약은 기존 `daily_journals`, `daily_todos`, `habit_logs`만 사용합니다.
+`daily_diaries`는 오늘 화면의 "오늘의 일기" 단일 입력칸 전용 컬렉션입니다. 주간 대시보드, 인사이트, 로컬 daily 백업 sync는 이 컬렉션을 읽지 않습니다. 대시보드에 노출되는 일일 요약은 기존 `daily_journals`, `daily_todos`, `habit_logs`만 사용합니다.
 
 ## 5. 이전 후 점검
 

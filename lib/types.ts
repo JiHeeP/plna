@@ -104,9 +104,7 @@ export interface DailyJournal {
 export interface DailyDiary {
   id: string;
   date: string;
-  accomplishments: string;
-  to_improve: string;
-  went_well: string;
+  content: string;
   created_at: string;
   updated_at: string;
 }
