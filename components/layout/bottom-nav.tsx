@@ -16,6 +16,9 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  // 위젯 창은 이미지 하나만 띄우는 용도라 내비게이션을 보여주지 않는다.
+  if (pathname === "/widget") return null;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background">
       <div className="mx-auto flex max-w-md items-center justify-around lg:max-w-6xl">

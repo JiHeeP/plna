@@ -95,12 +95,13 @@ plna/
 - 주간 습관 그리드
 - 주간 대시보드 (요약 테이블)
 
-### 5. 안드로이드 홈 화면 위젯
+### 5. 홈 화면 / 바탕화면 위젯
 - `GET /api/widget` — 오늘 요약 JSON (습관 진행률·남은 할 일·이번 주 목표·확언)
 - `GET /api/widget/image` — 같은 내용을 그린 투명 배경 PNG (`w`/`h`/`theme` 지원)
 - `PLNA_WIDGET_TOKEN` 전용 토큰으로만 접근 가능하며, 미설정 시 503으로 닫힌다
 - Firestore 읽기 쿼터를 아끼기 위해 응답을 캐시한다 (`PLNA_WIDGET_CACHE_SECONDS`, 기본 300초)
-- 설정 방법은 `docs/android-widget.md` 참고
+- `/widget` — 위젯 이미지를 주기적으로 다시 불러오는 페이지 (창 하나를 위젯처럼 띄울 때)
+- 설정 방법은 `docs/android-widget.md`(안드로이드), `ops/rainmeter/README.md`(윈도우 바탕화면) 참고
 
 ### 6. 주간 대시보드
 - 요일별 습관 달성률·할 일·기록 테이블
