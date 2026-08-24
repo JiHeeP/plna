@@ -11,7 +11,9 @@ const patterns = [
   { name: "OpenAI-like key", regex: /\bsk-[A-Za-z0-9]{20,}\b/g },
   { name: "Kimi env with real value", regex: /KIMI_API_KEY\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
   { name: "OpenAI env with real value", regex: /OPENAI_API_KEY\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
-  { name: "Widget token with real value", regex: /PLNA_WIDGET_TOKEN\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
+  // `\s*` 대신 `[ \t]*`: 값이 비어 있을 때 줄바꿈을 넘어가 다음 줄을 값으로 오인하지 않도록 한다.
+  // `<...>` 형태의 문서용 플레이스홀더도 제외한다.
+  { name: "Widget token with real value", regex: /PLNA_WIDGET_TOKEN[ \t]*=[ \t]*(?!YOUR_|<|\$\{)[^\s#"'<]+/g },
 ];
 
 const hits = [];
