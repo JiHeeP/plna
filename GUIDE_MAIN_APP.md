@@ -36,7 +36,8 @@ plna/
 │       ├── topics/
 │       ├── insights/
 │       ├── weekly-dashboard/
-│       └── weekly-reflections/
+│       ├── weekly-reflections/
+│       └── widget/            # 홈 화면 위젯용 요약 JSON + PNG
 ├── components/
 │   ├── dashboard/          # 홈 화면 위젯
 │   ├── goals/              # 목표 관련 컴포넌트
@@ -94,7 +95,14 @@ plna/
 - 주간 습관 그리드
 - 주간 대시보드 (요약 테이블)
 
-### 5. 주간 대시보드
+### 5. 안드로이드 홈 화면 위젯
+- `GET /api/widget` — 오늘 요약 JSON (습관 진행률·남은 할 일·이번 주 목표·확언)
+- `GET /api/widget/image` — 같은 내용을 그린 투명 배경 PNG (`w`/`h`/`theme` 지원)
+- `PLNA_WIDGET_TOKEN` 전용 토큰으로만 접근 가능하며, 미설정 시 503으로 닫힌다
+- Firestore 읽기 쿼터를 아끼기 위해 응답을 캐시한다 (`PLNA_WIDGET_CACHE_SECONDS`, 기본 300초)
+- 설정 방법은 `docs/android-widget.md` 참고
+
+### 6. 주간 대시보드
 - 요일별 습관 달성률·할 일·기록 테이블
 - 첫 진입 시 Firestore에 daily check 데이터가 있는 최신 주차 자동 표시
 - 주간 초점 목표
@@ -116,6 +124,11 @@ FIREBASE_SERVICE_ACCOUNT_JSON=
 KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
+
+# 홈 화면 위젯
+PLNA_WIDGET_TOKEN=
+PLNA_WIDGET_CACHE_SECONDS=300
+PLNA_WIDGET_TIMEZONE=Asia/Seoul
 
 # X Likes Digest (계획 중)
 X_API_KEY=

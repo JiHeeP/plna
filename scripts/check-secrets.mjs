@@ -11,6 +11,7 @@ const patterns = [
   { name: "OpenAI-like key", regex: /\bsk-[A-Za-z0-9]{20,}\b/g },
   { name: "Kimi env with real value", regex: /KIMI_API_KEY\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
   { name: "OpenAI env with real value", regex: /OPENAI_API_KEY\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
+  { name: "Widget token with real value", regex: /PLNA_WIDGET_TOKEN\s*=\s*(?!YOUR_|\$\{|"?"?$)[^\s#"']+/g },
 ];
 
 const hits = [];
