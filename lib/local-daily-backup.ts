@@ -1,3 +1,5 @@
+import { normalizeTodoCategory, type TodoCategory } from "./todo-category";
+
 export const LOCAL_DAILY_BACKUP_CHANGED_EVENT = "plna:local-daily-backup-changed";
 export const LOCAL_DAILY_BACKUP_SYNC_EVENT = "plna:local-daily-backup-synced";
 
@@ -13,6 +15,7 @@ export interface LocalBackupTodo {
   date: string;
   text: string;
   completed: boolean;
+  category: TodoCategory;
   sort_order: number;
   created_at?: string;
 }
@@ -122,6 +125,7 @@ export function buildLocalDailyBackupPayloadFromEntries(entries: Iterable<[strin
           date: todosMatch[1],
           text,
           completed: toBoolean(entry.completed),
+          category: normalizeTodoCategory(entry.category),
           sort_order: toSortOrder(entry.sort_order, index),
           created_at: toText(entry.created_at) || undefined,
         });
@@ -180,6 +184,7 @@ export function normalizeLocalDailyBackupPayload(input: unknown): LocalDailyBack
       date,
       text,
       completed: toBoolean(entry.completed),
+      category: normalizeTodoCategory(entry.category),
       sort_order: toSortOrder(entry.sort_order, index),
       created_at: toText(entry.created_at) || undefined,
     }];
@@ -263,6 +268,7 @@ export function localDailyBackupPayloadToStorageEntries(input: LocalDailyBackupP
               id: todo.id,
               text: todo.text,
               completed: todo.completed,
+              category: todo.category,
               sort_order: todo.sort_order,
               created_at: todo.created_at,
             })),

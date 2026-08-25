@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
           date: todo.date,
           text: todo.text,
           completed: todo.completed,
+          category: todo.category,
           sort_order: todo.sort_order,
           created_at: todo.created_at || timestamp,
         };

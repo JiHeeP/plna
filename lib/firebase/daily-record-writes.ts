@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 import { getFirebaseAdminApp } from "./server";
+import { isTodoCategory, normalizeTodoCategory, type TodoCategory } from "../todo-category";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -26,6 +27,7 @@ interface DailyTodoInput {
   date: string;
   text: string;
   completed?: boolean;
+  category?: TodoCategory | string | null;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;
@@ -36,6 +38,7 @@ interface DailyTodoPatchInput {
   date?: string | null;
   completed?: boolean;
   text?: string;
+  category?: TodoCategory | string;
   sort_order?: number;
   updated_at?: string;
 }
@@ -144,6 +147,7 @@ export async function writeDailyTodo(input: DailyTodoInput, db?: DailyWriteDb) {
     date: input.date,
     text: input.text,
     completed: input.completed === true,
+    category: normalizeTodoCategory(input.category),
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     created_at: input.created_at || timestamp,
     updated_at: input.updated_at ?? timestamp,
@@ -175,6 +179,13 @@ export async function patchDailyTodo(input: DailyTodoPatchInput, db?: DailyWrite
 
   if (input.text !== undefined) {
     patch.text = input.text;
+  }
+
+  if (input.category !== undefined) {
+    if (!isTodoCategory(input.category)) {
+      throw new Error("category must be 'school' or 'personal'.");
+    }
+    patch.category = input.category;
   }
 
   if (input.sort_order !== undefined) {
