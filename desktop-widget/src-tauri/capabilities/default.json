@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "위젯 창(main)과 plna.vercel.app 원격 페이지에 기본 권한을 준다. 드래그 바가 창 이동을 요청할 수 있도록 start-dragging 을 명시한다.",
+  "windows": ["main"],
+  "local": true,
+  "remote": {
+    "urls": ["https://plna.vercel.app/*"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}
