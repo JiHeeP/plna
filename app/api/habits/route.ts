@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/firebase/server";
 import { writeHabitLog } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
+import { displayHabitName } from "@/lib/habit-display";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -21,6 +22,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: habitsError.message }, { status: 500 });
   }
 
+  const displayHabits = (habits || []).map((habit) => ({
+    ...habit,
+    name: displayHabitName(String(habit.name ?? "")),
+  }));
+
   if (start || end) {
     let logsQuery = supabase
       .from("habit_logs")
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      habits: habits || [],
+      habits: displayHabits,
       logs: logs || [],
     });
   }
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: logsError.message }, { status: 500 });
   }
 
-  const merged = (habits || []).map((habit) => ({
+  const merged = displayHabits.map((habit) => ({
     ...habit,
     log: logs?.find((log) => log.habit_id === habit.id) || null,
   }));

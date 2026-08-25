@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 import { createClient } from "@/lib/firebase/server";
+import { displayHabitName } from "@/lib/habit-display";
 import { getISOWeekString } from "@/lib/utils";
 import {
   buildWidgetSummary,
@@ -132,7 +133,7 @@ async function fetchWidgetRows(date: string, warnings: WidgetWarning[]): Promise
       if (error) throw new Error(error.message);
       return (data ?? []).map((row) => ({
         id: String(row.id),
-        name: String(row.name ?? ""),
+        name: displayHabitName(String(row.name ?? "")),
       }));
     }),
     optionalQuery(warnings, "habit_logs", [] as WidgetSourceRows["habitLogs"], async () => {

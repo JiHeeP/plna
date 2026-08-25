@@ -6,6 +6,7 @@ import {
   writeDailyTodo,
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
+import { isTodoCategory, normalizeTodoCategory } from "@/lib/todo-category";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -24,12 +25,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  const rows = (data ?? []).map((row) => ({
+    ...row,
+    category: normalizeTodoCategory(row.category),
+  }));
+
+  return NextResponse.json(rows);
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const text = String(body.text ?? "").trim();
+  const category = normalizeTodoCategory(body.category);
   const sortOrder = Number(body.sort_order);
   const targetDate = typeof body.date === "string" ? body.date : new Date().toISOString().split("T")[0];
   const id = typeof body.id === "string" && body.id.trim() && !body.id.includes("/")
@@ -45,6 +52,7 @@ export async function POST(request: NextRequest) {
       id,
       date: targetDate,
       text,
+      category,
       sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     });
 
@@ -56,6 +64,7 @@ export async function POST(request: NextRequest) {
       recordId: String(data.id),
       metadata: {
         has_text: true,
+        category,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
       },
     });
@@ -102,6 +111,16 @@ export async function PATCH(request: NextRequest) {
     patch.text = text;
   }
 
+  if ("category" in body) {
+    if (!isTodoCategory(body.category)) {
+      return NextResponse.json(
+        { error: "category must be 'school' or 'personal'" },
+        { status: 400 },
+      );
+    }
+    patch.category = body.category;
+  }
+
   if ("sort_order" in body) {
     const sortOrder = Number(body.sort_order);
     if (Number.isFinite(sortOrder)) {
@@ -129,6 +148,7 @@ export async function PATCH(request: NextRequest) {
       metadata: {
         updates_completed: "completed" in body,
         updates_text: "text" in body,
+        updates_category: "category" in body,
         updates_sort_order: "sort_order" in body,
       },
     });

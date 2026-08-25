@@ -119,9 +119,41 @@ describe("daily record direct Firestore writes", () => {
     assert.equal(writes[0].collectionName, "daily_todos");
     assert.equal(writes[0].id, "local_1");
     assert.equal(writes[0].data?.completed, true);
+    assert.equal(writes[0].data?.category, "personal");
     assert.equal(writes[1].id, "local_1");
     assert.equal(writes[1].data?.completed, false);
     assert.equal(writes[1].data?.updated_at, "2026-07-02T13:00:00.000Z");
+  });
+
+  it("stores the todo category and defaults legacy rows to personal", async () => {
+    const { db, writes } = createWriteOnlyDb();
+
+    await writeDailyTodo({
+      id: "local_school",
+      date: "2026-07-02",
+      text: "학교 업무",
+      category: "school",
+    }, db);
+    await writeDailyTodo({
+      id: "local_legacy",
+      date: "2026-07-02",
+      text: "카테고리 없던 시절 데이터",
+      category: "something-else",
+    }, db);
+    await patchDailyTodo({
+      id: "local_school",
+      category: "personal",
+      updated_at: "2026-07-02T13:00:00.000Z",
+    }, db);
+
+    assert.equal(writes[0].data?.category, "school");
+    assert.equal(writes[1].data?.category, "personal");
+    assert.equal(writes[2].data?.category, "personal");
+
+    await assert.rejects(
+      patchDailyTodo({ id: "local_school", category: "invalid" }, db),
+      /category must be 'school' or 'personal'/,
+    );
   });
 
   it("writes habit toggles as latest state rows", async () => {

@@ -7,7 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
 import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
+import {
+  TODO_CATEGORIES,
+  TODO_CATEGORY_LABELS,
+  normalizeTodoCategory,
+  type TodoCategory,
+} from "@/lib/todo-category";
 import type { DailyTodo } from "@/lib/types";
+
+const CATEGORY_ICONS: Record<TodoCategory, string> = {
+  school: "🏫",
+  personal: "🏠",
+};
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -23,9 +34,16 @@ function reorder<T extends { id: string }>(items: T[], activeId: string, overId:
   return cloned;
 }
 
+function normalizeTodos(items: DailyTodo[]) {
+  return items.map((todo) => ({ ...todo, category: normalizeTodoCategory(todo.category) }));
+}
+
 export function DailyTodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
-  const [newText, setNewText] = useState("");
+  const [newTexts, setNewTexts] = useState<Record<TodoCategory, string>>({
+    school: "",
+    personal: "",
+  });
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -40,7 +58,7 @@ export function DailyTodoList({ date }: { date?: string }) {
     if (saved === null) return null;
     try {
       const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed as DailyTodo[] : null;
+      return Array.isArray(parsed) ? normalizeTodos(parsed as DailyTodo[]) : null;
     } catch {
       return null;
     }
@@ -63,7 +81,7 @@ export function DailyTodoList({ date }: { date?: string }) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const data = (await response.json()) as DailyTodo[];
+      const data = normalizeTodos((await response.json()) as DailyTodo[]);
       const localTodos = readLocalTodos();
       if (localTodos !== null) {
         setTodos(localTodos);
@@ -84,81 +102,87 @@ export function DailyTodoList({ date }: { date?: string }) {
     loadTodos();
   }, [loadTodos]);
 
+  const grouped = useMemo(() => {
+    const byCategory: Record<TodoCategory, DailyTodo[]> = { school: [], personal: [] };
+    todos.forEach((todo) => {
+      byCategory[normalizeTodoCategory(todo.category)].push(todo);
+    });
+    return byCategory;
+  }, [todos]);
+
   const switchToLocal = (updated: DailyTodo[]) => {
     setUseLocal(true);
     saveLocal(updated);
   };
 
-  const persistOrder = async (ordered: DailyTodo[]) => {
+  const persistOrder = async (all: DailyTodo[], reordered: DailyTodo[]) => {
     if (useLocal) return;
-    saveLocal(ordered, false);
+    saveLocal(all, false);
     try {
       const responses = await Promise.all(
-        ordered.map((t, idx) =>
+        reordered.map((t) =>
           fetch("/api/todos", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: t.id, date: targetDate, sort_order: idx }),
+            body: JSON.stringify({ id: t.id, date: targetDate, sort_order: t.sort_order }),
           }),
         ),
       );
       if (responses.some((response) => !response.ok)) {
-        switchToLocal(ordered);
+        switchToLocal(all);
       } else {
-        saveLocal(ordered);
+        saveLocal(all);
       }
     } catch {
-      switchToLocal(ordered);
+      switchToLocal(all);
     }
   };
 
-  const addTodo = async () => {
-    const text = newText.trim();
+  const addTodo = async (category: TodoCategory) => {
+    const text = newTexts[category].trim();
     if (!text) return;
 
-    if (useLocal) {
-      const newTodo: DailyTodo = {
-        id: `local_${Date.now()}`,
-        date: targetDate,
-        text,
-        completed: false,
-        sort_order: todos.length,
-        created_at: new Date().toISOString(),
-      };
-      const updated = [...todos, newTodo];
-      setTodos(updated);
-      saveLocal(updated);
-      setNewText("");
-      return;
-    }
-
+    const sortOrder = grouped[category].length;
     const localTodo: DailyTodo = {
       id: `local_${Date.now()}`,
       date: targetDate,
       text,
       completed: false,
-      sort_order: todos.length,
+      category,
+      sort_order: sortOrder,
       created_at: new Date().toISOString(),
     };
-    const optimistic = [...todos, localTodo];
-    setTodos(optimistic);
-    saveLocal(optimistic, false);
-    setNewText("");
+    const updated = [...todos, localTodo];
+    setTodos(updated);
+    setNewTexts((prev) => ({ ...prev, [category]: "" }));
+
+    if (useLocal) {
+      saveLocal(updated);
+      return;
+    }
+
+    saveLocal(updated, false);
 
     try {
       const response = await fetch("/api/todos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: localTodo.id, date: targetDate, text, sort_order: todos.length }),
+        body: JSON.stringify({
+          id: localTodo.id,
+          date: targetDate,
+          text,
+          category,
+          sort_order: sortOrder,
+        }),
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = (await response.json()) as DailyTodo;
-      const saved = optimistic.map((todo) => (todo.id === localTodo.id ? data : todo));
+      const data = normalizeTodos([(await response.json()) as DailyTodo])[0];
+      const saved = updated.map((todo) => (todo.id === localTodo.id ? data : todo));
       setTodos(saved);
       saveLocal(saved);
     } catch {
-      switchToLocal(optimistic);
+      switchToLocal(updated);
     }
   };
 
@@ -220,8 +244,14 @@ export function DailyTodoList({ date }: { date?: string }) {
     }
   };
 
-  const deleteTodo = async (id: string) => {
-    const updated = todos.filter((t) => t.id !== id);
+  const deleteTodo = async (todo: DailyTodo) => {
+    const category = normalizeTodoCategory(todo.category);
+    const remainingInCategory = grouped[category]
+      .filter((t) => t.id !== todo.id)
+      .map((t, i) => ({ ...t, sort_order: i }));
+    const updated = todos
+      .filter((t) => t.id !== todo.id)
+      .map((t) => remainingInCategory.find((r) => r.id === t.id) ?? t);
     setTodos(updated);
     saveLocal(updated, false);
 
@@ -231,15 +261,33 @@ export function DailyTodoList({ date }: { date?: string }) {
     }
 
     try {
-      const response = await fetch(`/api/todos?id=${encodeURIComponent(id)}&date=${encodeURIComponent(targetDate)}`, {
+      const response = await fetch(`/api/todos?id=${encodeURIComponent(todo.id)}&date=${encodeURIComponent(targetDate)}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      await persistOrder(updated);
-      saveLocal(updated);
+      await persistOrder(updated, remainingInCategory);
     } catch {
       switchToLocal(updated);
     }
+  };
+
+  const dropOnTodo = async (target: DailyTodo) => {
+    if (!editMode || !draggingId || draggingId === target.id) return;
+    const dragging = todos.find((t) => t.id === draggingId);
+    setDraggingId(null);
+    if (!dragging) return;
+
+    const category = normalizeTodoCategory(target.category);
+    if (normalizeTodoCategory(dragging.category) !== category) return;
+
+    const reordered = reorder(grouped[category], dragging.id, target.id).map((t, i) => ({
+      ...t,
+      sort_order: i,
+    }));
+    const updated = todos.map((t) => reordered.find((r) => r.id === t.id) ?? t);
+    setTodos(updated);
+    if (useLocal) saveLocal(updated);
+    else await persistOrder(updated, reordered);
   };
 
   const completedCount = todos.filter((t) => t.completed).length;
@@ -258,45 +306,31 @@ export function DailyTodoList({ date }: { date?: string }) {
     );
   }
 
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base lg:text-lg">오늘의 할 일</CardTitle>
-          <div className="flex items-center gap-2">
-            {todos.length > 0 && (
-              <span className="text-sm lg:text-base text-muted-foreground">{completedCount}/{todos.length} 완료</span>
-            )}
-            <Button
-              variant={editMode ? "default" : "ghost"}
-              size="icon-xs"
-              onClick={() => {
-                setEditMode((v) => !v);
-                setEditingId(null);
-              }}
-              title={editMode ? "수정 완료" : "수정 모드"}
-            >
-              {editMode ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
+  const renderSection = (category: TodoCategory) => {
+    const sectionTodos = grouped[category];
+    const sectionCompleted = sectionTodos.filter((t) => t.completed).length;
+
+    return (
+      <div key={category} className="space-y-1">
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-sm lg:text-base font-semibold">
+            {CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
+          </span>
+          {sectionTodos.length > 0 && (
+            <span className="text-xs lg:text-sm text-muted-foreground">
+              {sectionCompleted}/{sectionTodos.length} 완료
+            </span>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-1">
-        {todos.map((todo, idx) => (
+
+        {sectionTodos.map((todo, idx) => (
           <div
             key={todo.id}
             className={`flex items-center gap-2 rounded-lg px-2 py-2.5 group transition-colors ${draggingId === todo.id ? "bg-accent" : "hover:bg-accent"}`}
             draggable={editMode}
             onDragStart={() => editMode && setDraggingId(todo.id)}
             onDragOver={(e) => editMode && e.preventDefault()}
-            onDrop={async () => {
-              if (!editMode || !draggingId || draggingId === todo.id) return;
-              const updated = reorder(todos, draggingId, todo.id).map((t, i) => ({ ...t, sort_order: i }));
-              setTodos(updated);
-              setDraggingId(null);
-              if (useLocal) saveLocal(updated);
-              else await persistOrder(updated);
-            }}
+            onDrop={() => dropOnTodo(todo)}
             onDragEnd={() => setDraggingId(null)}
           >
             {editMode ? (
@@ -336,7 +370,7 @@ export function DailyTodoList({ date }: { date?: string }) {
             {editMode && (
               <button
                 type="button"
-                onClick={() => deleteTodo(todo.id)}
+                onClick={() => deleteTodo(todo)}
                 className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
               >
                 <X className="h-4 w-4" />
@@ -348,23 +382,52 @@ export function DailyTodoList({ date }: { date?: string }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            addTodo();
+            addTodo(category);
           }}
-          className="flex items-center gap-2 pt-2"
+          className="flex items-center gap-2"
         >
           <Input
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            placeholder="할 일 추가..."
+            value={newTexts[category]}
+            onChange={(e) => setNewTexts((prev) => ({ ...prev, [category]: e.target.value }))}
+            placeholder={`${TODO_CATEGORY_LABELS[category]} 할 일 추가...`}
             className="h-9 text-sm lg:text-base"
           />
           <Button type="submit" size="sm" variant="ghost" className="h-9 px-2">
             <Plus className="h-4 w-4" />
           </Button>
         </form>
+      </div>
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base lg:text-lg">오늘의 할 일</CardTitle>
+          <div className="flex items-center gap-2">
+            {todos.length > 0 && (
+              <span className="text-sm lg:text-base text-muted-foreground">{completedCount}/{todos.length} 완료</span>
+            )}
+            <Button
+              variant={editMode ? "default" : "ghost"}
+              size="icon-xs"
+              onClick={() => {
+                setEditMode((v) => !v);
+                setEditingId(null);
+              }}
+              title={editMode ? "수정 완료" : "수정 모드"}
+            >
+              {editMode ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-4">
+        {TODO_CATEGORIES.map((category) => renderSection(category))}
 
         {todos.length > 0 && (
-          <div className="pt-3">
+          <div className="pt-1">
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary transition-all duration-500"

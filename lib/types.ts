@@ -1,3 +1,5 @@
+import type { TodoCategory } from "./todo-category";
+
 export interface Affirmation {
   id: string;
   text: string;
@@ -87,6 +89,7 @@ export interface DailyTodo {
   date: string;
   text: string;
   completed: boolean;
+  category: TodoCategory;
   sort_order: number;
   created_at: string;
 }
