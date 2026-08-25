@@ -69,9 +69,9 @@ describe("widget summary", () => {
     habitLogs: [{ habit_id: "h1", completed: true }, { habit_id: "h3", completed: true }],
     todos: [
       { text: "코드 리뷰", completed: true, sort_order: 1 },
-      { text: "수업안 초안", completed: false, sort_order: 3 },
-      { text: "자료 정리", completed: false, sort_order: 2 },
-      { text: "메일 회신", completed: false, sort_order: 4 },
+      { text: "수업안 초안", completed: false, category: "school", sort_order: 3 },
+      { text: "자료 정리", completed: false, category: "school", sort_order: 2 },
+      { text: "메일 회신", completed: false, category: "personal", sort_order: 4 },
       { text: "장보기", completed: false, sort_order: 5 },
     ],
     weeklyGoals: [
@@ -89,11 +89,15 @@ describe("widget summary", () => {
     assert.deepEqual(summary.habits.remaining, ["운동 30분", "책 읽기"]);
   });
 
-  it("reports open todos in sort order and caps the preview at three", () => {
+  it("reports open todos in sort order with category labels, capped at three", () => {
     assert.equal(summary.todos.total, 5);
     assert.equal(summary.todos.done, 1);
     assert.equal(summary.todos.remaining, 4);
-    assert.deepEqual(summary.todos.next, ["자료 정리", "수업안 초안", "메일 회신"]);
+    assert.deepEqual(summary.todos.next, [
+      "[학교] 자료 정리",
+      "[학교] 수업안 초안",
+      "[개인] 메일 회신",
+    ]);
   });
 
   it("focuses the first unfinished weekly goal", () => {
@@ -122,8 +126,7 @@ describe("widget summary", () => {
       },
       GENERATED_AT,
     );
-    assert.equal(long.todos.next[0].length, 28);
-    assert.ok(long.todos.next[0].endsWith("…"));
+    assert.equal(long.todos.next[0], `[개인] ${"가".repeat(23)}…`);
     assert.equal(long.weeklyGoal?.text.length, 34);
   });
 
@@ -210,7 +213,7 @@ describe("widget next-up panel", () => {
       }),
     );
     assert.equal(panel.heading, "남은 할 일 3개");
-    assert.deepEqual(panel.lines, ["가", "나"]);
+    assert.deepEqual(panel.lines, ["[개인] 가", "[개인] 나"]);
   });
 
   it("falls back to unfinished habits once every todo is done", () => {

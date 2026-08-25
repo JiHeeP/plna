@@ -6,7 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
-import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
+import {
+  LOCAL_DAILY_BACKUP_CHANGED_EVENT,
+  LOCAL_DAILY_BACKUP_SYNC_EVENT,
+} from "@/lib/local-daily-backup";
 import {
   TODO_CATEGORIES,
   TODO_CATEGORY_LABELS,
@@ -19,6 +22,8 @@ const CATEGORY_ICONS: Record<TodoCategory, string> = {
   school: "🏫",
   personal: "🏠",
 };
+
+const REFRESH_MS = 5 * 60 * 1000;
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -81,14 +86,11 @@ export function DailyTodoList({ date }: { date?: string }) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
+      // 서버가 진실의 원천: 위젯 등 다른 창에서 바꾼 내용을 그대로 따라간다.
+      // localStorage 사본은 오프라인 폴백과 백업 sync용으로만 유지한다.
       const data = normalizeTodos((await response.json()) as DailyTodo[]);
-      const localTodos = readLocalTodos();
-      if (localTodos !== null) {
-        setTodos(localTodos);
-      } else {
-        setTodos(data || []);
-        if (data?.length) saveLocal(data, false);
-      }
+      setTodos(data);
+      saveLocal(data, false);
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -101,6 +103,36 @@ export function DailyTodoList({ date }: { date?: string }) {
   useEffect(() => {
     loadTodos();
   }, [loadTodos]);
+
+  // 위젯 창에서 추가/체크한 할 일이 메인 화면에도 따라오도록
+  // 주기적으로, 창이 다시 보일 때, 로컬 백업 sync 직후에 다시 읽는다.
+  // 수정 모드이거나 입력 중일 때는 새로고침으로 작업이 날아가지 않게 쉰다.
+  const busy =
+    editMode ||
+    editingId !== null ||
+    newTexts.school.trim() !== "" ||
+    newTexts.personal.trim() !== "";
+
+  useEffect(() => {
+    if (busy) return;
+
+    const timer = setInterval(() => loadTodos(), REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadTodos();
+    };
+    const onSynced = () => loadTodos();
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, onSynced);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, onSynced);
+    };
+  }, [busy, loadTodos]);
 
   const grouped = useMemo(() => {
     const byCategory: Record<TodoCategory, DailyTodo[]> = { school: [], personal: [] };

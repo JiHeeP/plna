@@ -1,4 +1,5 @@
 import { AFFIRMATIONS, YEAR_START } from "@/lib/constants";
+import { normalizeTodoCategory, TODO_CATEGORY_LABELS } from "@/lib/todo-category";
 import { getISOWeekString } from "@/lib/utils";
 import type { Pillar } from "@/lib/types";
 
@@ -29,7 +30,7 @@ export interface WidgetSummary {
 export interface WidgetSourceRows {
   habits: { id: string; name: string }[];
   habitLogs: { habit_id: string; completed?: boolean }[];
-  todos: { text: string; completed?: boolean; sort_order?: number }[];
+  todos: { text: string; completed?: boolean; category?: string; sort_order?: number }[];
   weeklyGoals: { text: string; pillar: Pillar; completed?: boolean; sort_order?: number }[];
 }
 
@@ -92,6 +93,12 @@ function bySortOrder(a: { sort_order?: number }, b: { sort_order?: number }) {
   return (a.sort_order ?? 0) - (b.sort_order ?? 0);
 }
 
+// 이미지 위젯은 한글 폰트만 내려받으므로 이모지 대신 텍스트 라벨을 붙인다.
+function todoLine(todo: { text: string; category?: string }, max: number) {
+  const label = TODO_CATEGORY_LABELS[normalizeTodoCategory(todo.category)];
+  return `[${label}] ${clampText(todo.text, max)}`;
+}
+
 export function buildWidgetSummary(
   date: string,
   rows: WidgetSourceRows,
@@ -128,7 +135,7 @@ export function buildWidgetSummary(
       done: doneTodos,
       total: rows.todos.length,
       remaining: openTodos.length,
-      next: openTodos.slice(0, 3).map((todo) => clampText(todo.text, 28)),
+      next: openTodos.slice(0, 3).map((todo) => todoLine(todo, 24)),
     },
     weeklyGoal: focusGoal
       ? {
