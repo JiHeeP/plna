@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  // 위젯 창은 이미지 하나만 띄우는 용도라 내비게이션을 보여주지 않는다.
+  // 위젯 창은 좁은 창 하나로 쓰는 화면이라 내비게이션을 보여주지 않는다.
   if (pathname === "/widget") return null;
 
   return (
