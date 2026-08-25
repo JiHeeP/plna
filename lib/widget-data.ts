@@ -151,13 +151,14 @@ async function fetchWidgetRows(date: string, warnings: WidgetWarning[]): Promise
     optionalQuery(warnings, "daily_todos", [] as WidgetSourceRows["todos"], async () => {
       const { data, error } = await supabase
         .from("daily_todos")
-        .select("text, completed, sort_order")
+        .select("text, completed, category, sort_order")
         .eq("date", date)
         .order("sort_order");
       if (error) throw new Error(error.message);
       return (data ?? []).map((row) => ({
         text: String(row.text ?? ""),
         completed: row.completed === true,
+        category: typeof row.category === "string" ? row.category : undefined,
         sort_order: Number(row.sort_order ?? 0),
       }));
     }),

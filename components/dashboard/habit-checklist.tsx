@@ -6,7 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DEFAULT_HABITS } from "@/lib/constants";
-import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
+import {
+  LOCAL_DAILY_BACKUP_CHANGED_EVENT,
+  LOCAL_DAILY_BACKUP_SYNC_EVENT,
+} from "@/lib/local-daily-backup";
 import type { DailyHabit, HabitLog, HabitWithLog } from "@/lib/types";
 
 function toDateString(d: Date) {
@@ -19,6 +22,8 @@ const CATEGORY_OPTIONS = [
   { value: "identity", label: "나다운 나" },
   { value: "assets", label: "자산" },
 ] as const;
+
+const REFRESH_MS = 5 * 60 * 1000;
 
 export function HabitChecklist({ date }: { date?: string }) {
   const [habits, setHabits] = useState<DailyHabit[]>([]);
@@ -53,29 +58,20 @@ export function HabitChecklist({ date }: { date?: string }) {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
+      // 서버가 진실의 원천: 위젯 창에서 체크한 습관도 그대로 따라간다.
+      // localStorage 사본은 오프라인 폴백과 백업 sync용으로만 유지한다.
       const habitsData = (await response.json()) as HabitWithLog[];
       setHabits(habitsData);
-      const localChecked = readLocalHabitChecks();
-      if (localChecked !== null) {
-        setLogs(
-          habitsData
-            .filter((habit) => localChecked[habit.name_en])
-            .map((habit) => ({
-              id: `local_${habit.id}_${targetDate}`,
-              habit_id: habit.id,
-              date: targetDate,
-              completed: true,
-              value: null,
-              created_at: "",
-            })),
-        );
-      } else {
-        setLogs(
-          habitsData
-            .map((habit) => habit.log)
-            .filter((log): log is HabitLog => Boolean(log?.completed)),
-        );
-      }
+      setLogs(
+        habitsData
+          .map((habit) => habit.log)
+          .filter((log): log is HabitLog => Boolean(log?.completed)),
+      );
+      const checkedMap: Record<string, boolean> = {};
+      habitsData.forEach((habit) => {
+        if (habit.log?.completed) checkedMap[habit.name_en] = true;
+      });
+      localStorage.setItem(`habits_${targetDate}`, JSON.stringify(checkedMap));
       setUseLocal(false);
     } catch {
       setUseLocal(true);
@@ -114,6 +110,29 @@ export function HabitChecklist({ date }: { date?: string }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // 위젯 창에서 체크한 습관이 메인 화면에도 따라오도록
+  // 주기적으로, 창이 다시 보일 때, 로컬 백업 sync 직후에 다시 읽는다.
+  useEffect(() => {
+    if (editMode) return;
+
+    const timer = setInterval(() => loadData(), REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadData();
+    };
+    const onSynced = () => loadData();
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, onSynced);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener(LOCAL_DAILY_BACKUP_SYNC_EVENT, onSynced);
+    };
+  }, [editMode, loadData]);
 
   const isCompleted = useCallback(
     (habitId: string) =>

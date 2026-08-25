@@ -5,8 +5,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { getDDay } from "@/lib/widget";
 import { cn } from "@/lib/utils";
+import {
+  TODO_CATEGORIES,
+  TODO_CATEGORY_LABELS,
+  normalizeTodoCategory,
+  type TodoCategory,
+} from "@/lib/todo-category";
 import type { DailyTodo, HabitWithLog } from "@/lib/types";
 import { X } from "lucide-react";
+
+const CATEGORY_ICONS: Record<TodoCategory, string> = {
+  school: "🏫",
+  personal: "🏠",
+};
 
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const REFRESH_MS = 5 * 60 * 1000;
@@ -35,7 +46,10 @@ export function WidgetBoard() {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<TodoCategory, string>>({
+    school: "",
+    personal: "",
+  });
   const [adding, setAdding] = useState(false);
 
   // 자정을 넘겨 창을 켜 둔 채로도 날짜가 따라가도록 새로고침마다 다시 계산한다.
@@ -91,6 +105,14 @@ export function WidgetBoard() {
   const percent = habits.length > 0 ? Math.round((doneCount / habits.length) * 100) : 0;
   const openTodos = todos.filter((todo) => !todo.completed).length;
 
+  const grouped = useMemo(() => {
+    const byCategory: Record<TodoCategory, DailyTodo[]> = { school: [], personal: [] };
+    todos.forEach((todo) => {
+      byCategory[normalizeTodoCategory(todo.category)].push(todo);
+    });
+    return byCategory;
+  }, [todos]);
+
   async function toggleHabit(habit: HabitWithLog) {
     const next = !habit.log?.completed;
     // 먼저 화면을 바꾸고, 실패하면 되돌린다. 위젯은 반응이 즉각적이어야 한다.
@@ -124,15 +146,20 @@ export function WidgetBoard() {
     }
   }
 
-  async function addTodo(event: React.FormEvent) {
+  async function addTodo(category: TodoCategory, event: React.FormEvent) {
     event.preventDefault();
-    const text = draft.trim();
+    const text = drafts[category].trim();
     if (!text || adding) return;
 
     setAdding(true);
     try {
-      await sendJson("/api/todos", "POST", { text, date: today, sort_order: todos.length });
-      setDraft("");
+      await sendJson("/api/todos", "POST", {
+        text,
+        date: today,
+        category,
+        sort_order: grouped[category].length,
+      });
+      setDrafts((current) => ({ ...current, [category]: "" }));
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -215,44 +242,63 @@ export function WidgetBoard() {
             <h2 className="mb-2 text-xs font-semibold text-muted-foreground">
               할 일 {openTodos > 0 ? `· 남은 ${openTodos}개` : null}
             </h2>
-            <form onSubmit={addTodo} className="mb-2">
-              <Input
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="할 일을 적고 Enter"
-                disabled={adding}
-                className="h-9 text-sm"
-              />
-            </form>
-            <ul className="space-y-1">
-              {todos.map((todo) => (
-                <li key={todo.id} className="group flex items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-accent">
-                  <Checkbox
-                    checked={todo.completed}
-                    onCheckedChange={() => void toggleTodo(todo)}
-                  />
-                  <span
-                    className={cn(
-                      "flex-1 text-sm",
-                      todo.completed && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {todo.text}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void removeTodo(todo)}
-                    aria-label={`${todo.text} 삭제`}
-                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-              {todos.length === 0 ? (
-                <li className="px-1 py-1.5 text-sm text-muted-foreground">오늘 할 일이 없습니다.</li>
-              ) : null}
-            </ul>
+            <div className="space-y-3">
+              {TODO_CATEGORIES.map((category) => {
+                const sectionTodos = grouped[category];
+                const sectionDone = sectionTodos.filter((todo) => todo.completed).length;
+                return (
+                  <div key={category}>
+                    <div className="mb-1 flex items-baseline justify-between px-1">
+                      <span className="text-xs font-semibold">
+                        {CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
+                      </span>
+                      {sectionTodos.length > 0 ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          {sectionDone}/{sectionTodos.length}
+                        </span>
+                      ) : null}
+                    </div>
+                    <ul className="space-y-1">
+                      {sectionTodos.map((todo) => (
+                        <li key={todo.id} className="group flex items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-accent">
+                          <Checkbox
+                            checked={todo.completed}
+                            onCheckedChange={() => void toggleTodo(todo)}
+                          />
+                          <span
+                            className={cn(
+                              "flex-1 text-sm",
+                              todo.completed && "text-muted-foreground line-through",
+                            )}
+                          >
+                            {todo.text}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void removeTodo(todo)}
+                            aria-label={`${todo.text} 삭제`}
+                            className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <form onSubmit={(event) => void addTodo(category, event)} className="mt-1">
+                      <Input
+                        value={drafts[category]}
+                        onChange={(event) =>
+                          setDrafts((current) => ({ ...current, [category]: event.target.value }))
+                        }
+                        placeholder={`${TODO_CATEGORY_LABELS[category]} 할 일을 적고 Enter`}
+                        disabled={adding}
+                        className="h-8 text-sm"
+                      />
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         </>
       )}
