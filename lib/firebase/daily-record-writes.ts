@@ -199,6 +199,48 @@ export async function patchDailyTodo(input: DailyTodoPatchInput, db?: DailyWrite
   return patch;
 }
 
+interface RolloverTodosInput {
+  /** 이월 목적지 날짜(보통 오늘). 이 날짜보다 과거의 미완료 할 일이 이 날짜로 옮겨진다. */
+  today: string;
+  /** 조회 범위(일). 이보다 오래된 항목은 건드리지 않는다. Firestore 읽기 폭주 방지용. */
+  windowDays?: number;
+  updated_at?: string;
+}
+
+function shiftDateString(date: string, days: number) {
+  const [year, month, day] = date.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, (month ?? 1) - 1, (day ?? 1) + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * 완료 처리되지 않은 과거 할 일을 today 로 옮긴다(이월).
+ * 문서 id 와 created_at 은 그대로 두므로 언제 만든 할 일인지는 남는다.
+ * 옮긴 문서 id 목록을 돌려준다.
+ */
+export async function rolloverIncompleteTodos(input: RolloverTodosInput, db?: DailyWriteDb) {
+  assertDate(input.today);
+  const windowStart = shiftDateString(input.today, -(input.windowDays ?? 30));
+  const timestamp = input.updated_at ?? nowIso();
+
+  // date 단일 필드 범위 조회라 복합 인덱스가 필요 없다. completed 는 메모리에서 거른다.
+  const snapshot = await dbOrDefault(db)
+    .collection("daily_todos")
+    .where("date", ">=", windowStart)
+    .where("date", "<", input.today)
+    .get();
+
+  const moved: string[] = [];
+  await Promise.all(
+    snapshot.docs.map(async (doc) => {
+      if (doc.data().completed === true) return;
+      await doc.ref.set({ date: input.today, updated_at: timestamp }, { merge: true });
+      moved.push(doc.id);
+    }),
+  );
+  return moved;
+}
+
 export async function deleteDailyTodo(idInput: string, db?: DailyWriteDb) {
   const id = safeDailyRecordId(idInput);
   if (!id) {
