@@ -6,6 +6,7 @@ import {
   dailyJournalDocId,
   habitLogDocId,
   patchDailyTodo,
+  rolloverIncompleteTodos,
   writeDailyDiary,
   writeDailyJournal,
   writeDailyTodo,
@@ -41,6 +42,48 @@ function createWriteOnlyDb() {
             };
           },
         };
+      },
+    },
+  };
+}
+
+function createQueryDb(rows: Array<Record<string, unknown>>) {
+  const writes: Array<{ id: string; data: Record<string, unknown>; options?: { merge: boolean } }> = [];
+
+  function makeQuery(filters: Array<(row: Record<string, unknown>) => boolean>) {
+    return {
+      where(field: string, op: string, value: string) {
+        const filter = (row: Record<string, unknown>) => {
+          const actual = String(row[field] ?? "");
+          if (op === ">=") return actual >= value;
+          if (op === "<") return actual < value;
+          if (op === "==") return actual === value;
+          throw new Error(`unsupported op: ${op}`);
+        };
+        return makeQuery([...filters, filter]);
+      },
+      async get() {
+        const docs = rows
+          .filter((row) => filters.every((filter) => filter(row)))
+          .map((row) => ({
+            id: String(row.id),
+            data: () => row,
+            ref: {
+              async set(data: Record<string, unknown>, options?: { merge: boolean }) {
+                writes.push({ id: String(row.id), data, options });
+              },
+            },
+          }));
+        return { docs };
+      },
+    };
+  }
+
+  return {
+    writes,
+    db: {
+      collection() {
+        return makeQuery([]);
       },
     },
   };
@@ -170,6 +213,43 @@ describe("daily record direct Firestore writes", () => {
     assert.equal(writes[0].collectionName, "habit_logs");
     assert.equal(writes[0].id, "habit_logs_exercise_2026-07-02");
     assert.equal(writes[0].data?.completed, false);
+  });
+
+  it("rolls over incomplete past todos to today", async () => {
+    const { db, writes } = createQueryDb([
+      { id: "t_old_open", date: "2026-08-25", completed: false },
+      { id: "t_old_done", date: "2026-08-25", completed: true },
+      { id: "t_older_open", date: "2026-08-01", completed: false },
+      { id: "t_today_open", date: "2026-08-26", completed: false },
+      { id: "t_ancient_open", date: "2026-06-01", completed: false },
+    ]);
+
+    const moved = await rolloverIncompleteTodos(
+      { today: "2026-08-26", updated_at: "2026-08-26T00:10:00.000Z" },
+      db,
+    );
+
+    assert.deepEqual(moved.sort(), ["t_old_open", "t_older_open"]);
+    assert.equal(writes.length, 2);
+    for (const write of writes) {
+      assert.deepEqual(write.data, {
+        date: "2026-08-26",
+        updated_at: "2026-08-26T00:10:00.000Z",
+      });
+      assert.deepEqual(write.options, { merge: true });
+    }
+  });
+
+  it("rollover leaves everything alone when nothing is pending", async () => {
+    const { db, writes } = createQueryDb([
+      { id: "t_done", date: "2026-08-25", completed: true },
+      { id: "t_today", date: "2026-08-26", completed: false },
+    ]);
+
+    const moved = await rolloverIncompleteTodos({ today: "2026-08-26" }, db);
+
+    assert.deepEqual(moved, []);
+    assert.equal(writes.length, 0);
   });
 
   it("uses stable document id helpers", () => {

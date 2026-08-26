@@ -3,16 +3,49 @@ import { createClient } from "@/lib/firebase/server";
 import {
   deleteDailyTodo,
   patchDailyTodo,
+  rolloverIncompleteTodos,
   writeDailyTodo,
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 import { isTodoCategory, normalizeTodoCategory } from "@/lib/todo-category";
+import { dateStringInTimeZone, resolveWidgetTimeZone } from "@/lib/widget";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const date =
     request.nextUrl.searchParams.get("date") ||
     new Date().toISOString().split("T")[0];
+
+  // 오늘 목록을 여는 순간, 어제까지의 미완료 할 일을 오늘로 이월한다.
+  // 과거 날짜를 조회할 때는 건드리지 않는다 (지난 기록이 바뀌면 안 되므로).
+  const today = dateStringInTimeZone(new Date(), resolveWidgetTimeZone());
+  if (date === today) {
+    try {
+      const moved = await rolloverIncompleteTodos({ today: date });
+      if (moved.length > 0) {
+        await recordDailyWriteAudit({
+          target: "todo",
+          action: "rollover",
+          status: "success",
+          date,
+          metadata: { moved_count: moved.length },
+        });
+      }
+    } catch (error) {
+      // 이월이 실패해도 오늘 목록 조회는 계속한다.
+      try {
+        await recordDailyWriteAudit({
+          target: "todo",
+          action: "rollover",
+          status: "error",
+          date,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      } catch {
+        // 감사 기록 실패는 무시
+      }
+    }
+  }
 
   const { data, error } = await supabase
     .from("daily_todos")
