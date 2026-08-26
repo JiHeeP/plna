@@ -4,6 +4,7 @@ use tauri::{
     Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+use tauri_plugin_window_state::StateFlags;
 
 /// 위젯으로 띄울 페이지. 로컬 개발 서버로 바꿔 볼 때는
 /// `PLNA_WIDGET_URL=http://localhost:3000/widget` 처럼 환경 변수로 덮어쓴다.
@@ -54,7 +55,12 @@ pub fn run() {
             }
         }))
         // 창 위치·크기를 저장했다가 다음 실행 때 복원한다.
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // VISIBLE 은 제외한다 — 숨긴 채로 종료해도 다음 실행 땐 창이 보여야 한다.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
+                .build(),
+        )
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None))
         .setup(|app| {
             let url = std::env::var("PLNA_WIDGET_URL").unwrap_or_else(|_| WIDGET_URL.into());
