@@ -9,8 +9,9 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 /// `PLNA_WIDGET_URL=http://localhost:3000/widget` 처럼 환경 변수로 덮어쓴다.
 const WIDGET_URL: &str = "https://plna.vercel.app/widget";
 
-/// 창에 제목표시줄이 없으므로, 페이지 맨 위에 투명한 드래그 바를 얹는다.
-/// `data-tauri-drag-region` 이 붙은 요소를 잡고 끌면 Tauri 가 창을 옮겨 준다.
+/// 창에 제목표시줄이 없으므로, 페이지 맨 위에 드래그 바를 얹는다.
+/// 가운데 알약 모양 손잡이가 보이고, 그 줄 전체(28px)를 잡고 끌면
+/// `data-tauri-drag-region` 을 통해 Tauri 가 창을 옮겨 준다.
 const DRAG_BAR_SCRIPT: &str = r#"
 (function () {
   function addDragBar() {
@@ -19,8 +20,20 @@ const DRAG_BAR_SCRIPT: &str = r#"
     bar.id = '__plna_drag_bar';
     bar.setAttribute('data-tauri-drag-region', '');
     bar.style.cssText =
-      'position:fixed;top:0;left:0;right:0;height:24px;' +
-      'z-index:2147483647;cursor:grab;background:transparent;';
+      'position:fixed;top:0;left:0;right:0;height:28px;' +
+      'z-index:2147483647;cursor:grab;background:transparent;' +
+      'display:flex;justify-content:center;align-items:flex-start;padding-top:7px;';
+    var pill = document.createElement('div');
+    pill.style.cssText =
+      'width:56px;height:6px;border-radius:3px;' +
+      'background:rgba(100,116,139,0.4);pointer-events:none;';
+    bar.appendChild(pill);
+    bar.addEventListener('mouseenter', function () {
+      pill.style.background = 'rgba(100,116,139,0.7)';
+    });
+    bar.addEventListener('mouseleave', function () {
+      pill.style.background = 'rgba(100,116,139,0.4)';
+    });
     document.body.appendChild(bar);
   }
   if (document.readyState === 'loading') {
