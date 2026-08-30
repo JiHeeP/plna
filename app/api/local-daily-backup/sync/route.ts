@@ -2,9 +2,9 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  createDailyTodoIfMissing,
   safeDailyRecordId,
   writeDailyJournal,
-  writeDailyTodo,
   writeHabitLog,
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
@@ -117,9 +117,13 @@ export async function POST(request: NextRequest) {
       (todo) => todo.id,
     );
 
+    // 백업은 "없어진 항목 복원"만 한다. 이미 서버에 있는 할 일을 덮어쓰면
+    // 위젯에서 체크한 상태나 오늘로 이월된 날짜가 낡은 스냅샷으로 되돌아간다.
+    let createdTodoCount = 0;
     if (todoRows.length > 0) {
       try {
-        await Promise.all(todoRows.map((todo) => writeDailyTodo(todo)));
+        const results = await Promise.all(todoRows.map((todo) => createDailyTodoIfMissing(todo)));
+        createdTodoCount = results.filter((result) => result.created).length;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         await recordDailyWriteAudit({
@@ -217,7 +221,8 @@ export async function POST(request: NextRequest) {
       status: "success",
       metadata: {
         journals: journalRows.length,
-        todos: todoRows.length,
+        todos: createdTodoCount,
+        skipped_existing_todos: todoRows.length - createdTodoCount,
         habit_logs: habitRows.length,
         skipped_habit_checks: payload.habitChecks.length - habitRows.length,
       },
@@ -227,7 +232,8 @@ export async function POST(request: NextRequest) {
       ok: true,
       synced: {
         journals: journalRows.length,
-        todos: todoRows.length,
+        todos: createdTodoCount,
+        skippedExistingTodos: todoRows.length - createdTodoCount,
         habitLogs: habitRows.length,
         skippedHabitChecks: payload.habitChecks.length - habitRows.length,
       },

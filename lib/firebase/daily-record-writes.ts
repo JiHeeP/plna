@@ -157,6 +157,45 @@ export async function writeDailyTodo(input: DailyTodoInput, db?: DailyWriteDb) {
   return row;
 }
 
+function isAlreadyExistsError(error: unknown) {
+  const code = (error as { code?: unknown }).code;
+  if (code === 6 || code === "already-exists") return true;
+  const message = error instanceof Error ? error.message : String(error);
+  return /ALREADY[_ ]EXISTS/i.test(message);
+}
+
+/**
+ * 백업 복원용: 서버에 같은 id 문서가 없을 때만 만든다.
+ * 이미 있는 문서는 절대 건드리지 않는다 — 낡은 localStorage 스냅샷이
+ * 위젯에서 체크했거나 오늘로 이월된 할 일을 과거 상태로 되돌리는 것을 막는다.
+ */
+export async function createDailyTodoIfMissing(input: DailyTodoInput, db?: DailyWriteDb) {
+  assertDate(input.date);
+  const timestamp = nowIso();
+  const id = todoDocId(input);
+  const sortOrder = Number(input.sort_order);
+  const row = {
+    id,
+    date: input.date,
+    text: input.text,
+    completed: input.completed === true,
+    category: normalizeTodoCategory(input.category),
+    sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+    created_at: input.created_at || timestamp,
+    updated_at: input.updated_at ?? timestamp,
+  };
+
+  try {
+    await dbOrDefault(db).collection("daily_todos").doc(id).create(row);
+    return { row, created: true };
+  } catch (error) {
+    if (isAlreadyExistsError(error)) {
+      return { row, created: false };
+    }
+    throw error;
+  }
+}
+
 export async function patchDailyTodo(input: DailyTodoPatchInput, db?: DailyWriteDb) {
   const id = safeDailyRecordId(input.id);
   if (!id) {
