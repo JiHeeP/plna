@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 
 import {
   createDailyTodoIfMissing,
+  createHabitLogIfMissing,
   patchDailyTodo,
   rolloverIncompleteTodos,
   writeDailyTodo,
+  writeHabitLog,
 } from "../lib/firebase/daily-record-writes";
 
 /**
@@ -94,7 +96,7 @@ function createFakeFirestore() {
       .sort((left, right) => left.id.localeCompare(right.id));
   }
 
-  return { db, todosOn, rows: () => rowsOf("daily_todos") };
+  return { db, todosOn, rowsIn: rowsOf };
 }
 
 /** GET /api/todos 가 오늘 날짜로 하는 일: 이월 후 그 날짜 목록 조회. */
@@ -189,5 +191,39 @@ describe("todo rollover backtest", () => {
       store.db,
     );
     assert.equal(restored.created, true);
+  });
+
+  it("습관도 동일: 체크 해제한 습관을 낡은 스냅샷이 다시 체크하지 못한다", async () => {
+    const store = createFakeFirestore();
+    const habitLogs = () =>
+      [...store.rowsIn("habit_logs").values()].map((row) => ({
+        id: String(row.id),
+        completed: row.completed === true,
+      }));
+
+    // 메인 페이지에서 체크 → 위젯에서 해제
+    await writeHabitLog({ habit_id: "exercise", date: "2026-08-25", completed: true }, store.db);
+    await writeHabitLog({ habit_id: "exercise", date: "2026-08-25", completed: false }, store.db);
+
+    // 낡은 localStorage 스냅샷(체크됨)이 sync 로 들어와도 해제 상태가 유지된다
+    const synced = await createHabitLogIfMissing(
+      { habit_id: "exercise", date: "2026-08-25", completed: true },
+      store.db,
+    );
+    assert.equal(synced.created, false, "이미 로그가 있으니 건너뛰어야 한다");
+    assert.deepEqual(habitLogs(), [
+      { id: "habit_logs_exercise_2026-08-25", completed: false },
+    ]);
+
+    // 서버에 로그가 아예 없는 날짜는 백업이 복원해 준다
+    const restored = await createHabitLogIfMissing(
+      { habit_id: "exercise", date: "2026-08-24", completed: true },
+      store.db,
+    );
+    assert.equal(restored.created, true);
+    assert.equal(
+      store.rowsIn("habit_logs").get("habit_logs_exercise_2026-08-24")?.completed,
+      true,
+    );
   });
 });
