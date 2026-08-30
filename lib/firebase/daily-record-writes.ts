@@ -306,3 +306,32 @@ export async function writeHabitLog(input: HabitLogInput, db?: DailyWriteDb) {
   await dbOrDefault(db).collection("habit_logs").doc(id).set(row, { merge: true });
   return row;
 }
+
+/**
+ * 백업 복원용: 같은 습관·날짜의 로그가 서버에 없을 때만 만든다.
+ * 이미 로그가 있으면(체크 해제 포함) 낡은 스냅샷이 그 상태를 덮어쓰지 못한다.
+ */
+export async function createHabitLogIfMissing(input: HabitLogInput, db?: DailyWriteDb) {
+  assertDate(input.date);
+  const timestamp = input.updated_at ?? nowIso();
+  const id = habitLogDocId(input.habit_id, input.date);
+  const row = {
+    id,
+    habit_id: input.habit_id,
+    date: input.date,
+    completed: input.completed === true,
+    value: input.value ?? null,
+    created_at: input.created_at ?? timestamp,
+    updated_at: timestamp,
+  };
+
+  try {
+    await dbOrDefault(db).collection("habit_logs").doc(id).create(row);
+    return { row, created: true };
+  } catch (error) {
+    if (isAlreadyExistsError(error)) {
+      return { row, created: false };
+    }
+    throw error;
+  }
+}

@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   createDailyTodoIfMissing,
+  createHabitLogIfMissing,
   safeDailyRecordId,
   writeDailyJournal,
-  writeHabitLog,
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 import { createClient } from "@/lib/firebase/server";
@@ -193,9 +193,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 할 일과 같은 원칙: 이미 로그가 있는 습관·날짜는 건드리지 않는다.
+    // 위젯에서 체크를 해제한 습관이 낡은 스냅샷 때문에 다시 체크되는 것을 막는다.
+    let createdHabitLogCount = 0;
     if (habitRows.length > 0) {
       try {
-        await Promise.all(habitRows.map((row) => writeHabitLog(row)));
+        const results = await Promise.all(habitRows.map((row) => createHabitLogIfMissing(row)));
+        createdHabitLogCount = results.filter((result) => result.created).length;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         await recordDailyWriteAudit({
@@ -223,7 +227,8 @@ export async function POST(request: NextRequest) {
         journals: journalRows.length,
         todos: createdTodoCount,
         skipped_existing_todos: todoRows.length - createdTodoCount,
-        habit_logs: habitRows.length,
+        habit_logs: createdHabitLogCount,
+        skipped_existing_habit_logs: habitRows.length - createdHabitLogCount,
         skipped_habit_checks: payload.habitChecks.length - habitRows.length,
       },
     });
@@ -234,7 +239,8 @@ export async function POST(request: NextRequest) {
         journals: journalRows.length,
         todos: createdTodoCount,
         skippedExistingTodos: todoRows.length - createdTodoCount,
-        habitLogs: habitRows.length,
+        habitLogs: createdHabitLogCount,
+        skippedExistingHabitLogs: habitRows.length - createdHabitLogCount,
         skippedHabitChecks: payload.habitChecks.length - habitRows.length,
       },
     });
