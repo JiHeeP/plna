@@ -10,12 +10,16 @@ PLNA는 PWA라서 안드로이드 네이티브 위젯(AppWidget)을 직접 등�
 |------|------|
 | `GET /api/widget` | 요약 JSON. KWGT·Tasker처럼 값을 직접 파싱해 쓰는 경우. |
 | `GET /api/widget/image` | 위젯 PNG. URL로 이미지를 불러오는 위젯 앱용. |
+| `GET /api/widget/habits` | 습관 목록과 체크 상태. 눌러서 체크하는 네이티브 위젯용. |
+| `POST /api/widget/habits` | 습관 체크 변경. **쓰기 토큰**이 필요하다. |
 
 ### 공통 쿼리 파라미터
 
 | 파라미터 | 기본값 | 설명 |
 |----------|--------|------|
 | `token` | (필수) | `PLNA_WIDGET_TOKEN` 값. `Authorization: Bearer <token>` 헤더로 대신 보낼 수도 있다. |
+
+기록을 바꾸는 `POST /api/widget/habits` 만 `PLNA_WIDGET_WRITE_TOKEN` 을 따로 요구한다.
 | `date` | 오늘 | `YYYY-MM-DD`. 디버깅용 날짜 고정. |
 
 ### 이미지 전용 파라미터
@@ -46,6 +50,7 @@ https://<배포주소>/api/widget/image?token=<토큰>&w=1000&h=500&theme=dark
 
    ```
    PLNA_WIDGET_TOKEN=<위에서 만든 값>
+   PLNA_WIDGET_WRITE_TOKEN=<또 다른 값 — 눌러서 체크하는 위젯에만 필요>
    PLNA_WIDGET_CACHE_SECONDS=300
    PLNA_WIDGET_TIMEZONE=Asia/Seoul
    ```
@@ -129,7 +134,18 @@ x-plna-widget-cache: hit | miss | quota-cooldown
   `fonts.googleapis.com` / `fonts.gstatic.com` 으로 나가는 요청이 막히면 한글이 빈칸으로
   나오고, 숫자와 진행 바는 정상 표시된다.
 
-## 7. 체크와 입력까지 하려면
+## 7. 눌러서 체크되는 진짜 위젯
+
+이미지 위젯이 답답하면 `android-widget/` 의 네이티브 앱을 쓴다. 홈 화면에서 습관 줄을
+누르면 그 자리에서 서버에 저장된다. 빌드·설치·설정 절차는 `android-widget/README.md` 참고.
+
+- 목록: `GET /api/widget/habits` (읽기 토큰)
+- 체크: `POST /api/widget/habits` (쓰기 토큰 `PLNA_WIDGET_WRITE_TOKEN`)
+
+쓰기 토큰을 읽기 토큰과 나눈 이유: 이미지 위젯 주소에는 읽기 토큰이 그대로 들어가
+스크린샷·로그로 샐 여지가 있는데, 그것만으로는 아무것도 바꾸지 못하게 하기 위해서다.
+
+## 8. 체크와 입력까지 하려면
 
 `/widget` 은 이미지가 아니라 실제 화면이라, 습관 체크·할 일 추가·할 일 체크가 모두 된다.
 

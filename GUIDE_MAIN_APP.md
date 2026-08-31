@@ -101,7 +101,14 @@ plna/
 - `PLNA_WIDGET_TOKEN` 전용 토큰으로만 접근 가능하며, 미설정 시 503으로 닫힌다
 - Firestore 읽기 쿼터를 아끼기 위해 응답을 캐시한다 (`PLNA_WIDGET_CACHE_SECONDS`, 기본 300초)
 - `/widget` — 위젯 이미지를 주기적으로 다시 불러오는 페이지 (창 하나를 위젯처럼 띄울 때)
+- `GET/POST /api/widget/habits` — 눌러서 체크하는 안드로이드 네이티브 위젯용 (`android-widget/`)
 - 설정 방법은 `docs/android-widget.md`(안드로이드), `ops/rainmeter/README.md`(윈도우 바탕화면) 참고
+
+### 5-1. 접근 게이트
+- 앱 전체가 매직 링크 게이트 뒤에 있다 (`proxy.ts`, `lib/access-gate.ts`)
+- `?key=<PLNA_ACCESS_KEY>` 가 붙은 주소를 기기에서 한 번 열면 1년짜리 쿠키가 심긴다
+- `/api/widget/*` 는 게이트를 지나치고 위젯 토큰으로 스스로 인증한다
+- 자세한 내용은 `docs/access-gate.md`
 
 ### 6. 주간 대시보드
 - 요일별 습관 달성률·할 일·기록 테이블
@@ -126,8 +133,12 @@ KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
 
+# 앱 접근 게이트 (필수 — 없으면 앱이 503으로 닫힌다)
+PLNA_ACCESS_KEY=
+
 # 홈 화면 위젯
 PLNA_WIDGET_TOKEN=
+PLNA_WIDGET_WRITE_TOKEN=
 PLNA_WIDGET_CACHE_SECONDS=300
 PLNA_WIDGET_TIMEZONE=Asia/Seoul
 

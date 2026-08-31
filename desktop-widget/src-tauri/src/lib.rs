@@ -15,6 +15,9 @@ const WIDGET_URL: &str = "https://plna.vercel.app/widget";
 const DESKTOP_QUERY_KEY: &str = "desktop";
 const DESKTOP_QUERY_VALUE: &str = "1";
 
+/// 앱 접근 게이트가 읽는 쿼리 이름. 서버가 쿠키를 심고 주소에서 지운다.
+const ACCESS_QUERY_KEY: &str = "key";
+
 /// 창을 되돌려 놓을 때 화면 가장자리에서 띄우는 여백(논리 픽셀).
 const SNAP_MARGIN: f64 = 24.0;
 
@@ -116,6 +119,19 @@ const DRAG_BAR_SCRIPT: &str = r#"
 })();
 "#;
 
+/// 앱 접근 게이트를 통과할 키. 창에는 주소창이 없으므로 매직 링크를 직접 열 수 없다.
+/// 그래서 첫 실행 때만 `plna-widget.exe --key=<키>` 로 넘기거나 `PLNA_ACCESS_KEY` 를 쓴다.
+/// 서버가 쿠키를 심어 주면 그 뒤로는 필요 없다 (쿠키는 WebView2 프로필에 남는다).
+fn access_key() -> Option<String> {
+    let from_args = std::env::args().find_map(|arg| {
+        arg.strip_prefix("--key=").map(|value| value.to_owned())
+    });
+    from_args
+        .or_else(|| std::env::var("PLNA_ACCESS_KEY").ok())
+        .map(|key| key.trim().to_owned())
+        .filter(|key| !key.is_empty())
+}
+
 /// 위젯 주소에 `desktop=1` 을 붙인다. 이미 붙어 있으면 그대로 둔다.
 fn widget_url() -> Url {
     let raw = std::env::var("PLNA_WIDGET_URL").unwrap_or_else(|_| WIDGET_URL.into());
@@ -126,6 +142,9 @@ fn widget_url() -> Url {
     if !already_marked {
         url.query_pairs_mut()
             .append_pair(DESKTOP_QUERY_KEY, DESKTOP_QUERY_VALUE);
+    }
+    if let Some(key) = access_key() {
+        url.query_pairs_mut().append_pair(ACCESS_QUERY_KEY, &key);
     }
     url
 }

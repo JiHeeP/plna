@@ -19,6 +19,19 @@
 
 로그인 세션은 WebView2 프로필에 저장되므로 **첫 실행 때 한 번만 로그인**하면 된다.
 
+## 첫 실행: 접근 키 한 번 넘기기
+
+앱 전체가 매직 링크 게이트 뒤에 있는데(`docs/access-gate.md`) 이 창에는 주소창이 없다.
+그래서 **첫 실행 때만** 키를 인자로 준다. 서버가 쿠키를 심어 주면 그 뒤로는 그냥 실행하면 된다
+(쿠키는 WebView2 프로필에 남는다).
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\PLNA Widget\plna-widget.exe" --key=<PLNA_ACCESS_KEY>
+```
+
+`PLNA_ACCESS_KEY` 환경 변수로 줘도 된다. 키는 주소에 붙었다가 서버가 쿠키를 심으면서
+곧바로 지우므로 창에 남지 않는다.
+
 ## 빌드 준비물 (Windows)
 
 1. **Rust** — <https://rustup.rs> 에서 설치 (기본 옵션 그대로)

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_plna"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light">
+
+        <!-- 홈 화면 위젯 본체. 시스템 브로드캐스트를 받아야 하므로 exported 여야 한다. -->
+        <receiver
+            android:name=".HabitWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/habit_widget_info" />
+        </receiver>
+
+        <!-- 습관 목록을 채우는 컬렉션 서비스. 런처만 붙을 수 있게 권한을 건다. -->
+        <service
+            android:name=".HabitRemoteViewsService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!-- 위젯을 홈 화면에 놓을 때 뜨는 설정 화면. 주소와 토큰을 여기서 입력한다. -->
+        <activity
+            android:name=".ConfigActivity"
+            android:exported="true"
+            android:label="@string/config_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

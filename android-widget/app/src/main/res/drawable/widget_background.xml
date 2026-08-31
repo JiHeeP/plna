@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 배경화면 위에 카드처럼 올라가도록 반투명 + 둥근 모서리. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/widget_background" />
+    <corners android:radius="16dp" />
+</shape>
