@@ -77,6 +77,38 @@ export function authorizeWidgetRequest(request: Request): WidgetAuthResult {
   return { ok: true, via };
 }
 
+export function resolveWidgetWriteToken() {
+  const token = process.env.PLNA_WIDGET_WRITE_TOKEN?.trim();
+  return token ? token : null;
+}
+
+/**
+ * 위젯에서 기록을 바꾸는 요청(습관 체크 등)을 검사한다.
+ * 읽기 토큰과 분리해 둔다 — 이미지 위젯 URL 에 박혀 다니는 읽기 토큰이 새어도
+ * 그것만으로는 아무것도 바꾸지 못해야 한다.
+ */
+export function authorizeWidgetWrite(request: Request): WidgetAuthResult {
+  const expected = resolveWidgetWriteToken();
+  if (!expected) {
+    return {
+      ok: false,
+      status: 503,
+      message: "PLNA_WIDGET_WRITE_TOKEN이 설정되지 않아 위젯 쓰기가 비활성화되어 있습니다.",
+    };
+  }
+
+  const headerToken = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const queryToken = new URL(request.url).searchParams.get("token")?.trim();
+  const via: "query" | "header" = headerToken ? "header" : "query";
+  const provided = headerToken || queryToken || "";
+
+  if (!provided || !safeEqual(provided, expected)) {
+    return { ok: false, status: 401, message: "유효하지 않은 위젯 쓰기 토큰입니다." };
+  }
+
+  return { ok: true, via };
+}
+
 /**
  * CDN 캐시 키는 URL(쿼리 포함)만 보고 헤더는 보지 않는다.
  * 따라서 토큰이 쿼리에 있을 때만 공유 캐시를 허용해야 무인증 요청에 캐시가 새지 않는다.
