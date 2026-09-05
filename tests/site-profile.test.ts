@@ -22,8 +22,8 @@ describe("site profile", () => {
   });
 
   it("turns the extras off for the mom profile only", () => {
-    assert.deepEqual(siteFeaturesFor("default"), { affirmation: true, conversations: true, fullGoals: true });
-    assert.deepEqual(siteFeaturesFor("mom"), { affirmation: false, conversations: false, fullGoals: false });
+    assert.deepEqual(siteFeaturesFor("default"), { affirmation: true, conversations: true, fullGoals: true, insights: true });
+    assert.deepEqual(siteFeaturesFor("mom"), { affirmation: false, conversations: false, fullGoals: false, insights: false });
   });
 });
 
