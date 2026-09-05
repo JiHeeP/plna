@@ -126,6 +126,9 @@ KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
 
+# 사이트 접근 키 (선택, 미설정 시 게이트 꺼짐)
+PLNA_ACCESS_KEY=
+
 # 홈 화면 위젯
 PLNA_WIDGET_TOKEN=
 PLNA_WIDGET_CACHE_SECONDS=300
@@ -140,6 +143,19 @@ X_USER_ID=
 X_BEARER_TOKEN=
 DIGEST_TIMEZONE=Asia/Seoul
 ```
+
+## 접근 키 게이트
+
+PLNA는 1인용이라 로그인이 없다. 대신 `PLNA_ACCESS_KEY`를 설정하면 사이트 전체에 문턱이 생긴다.
+
+- 첫 접속 때 `/login`에서 키를 한 번 입력하면 쿠키(1년)로 기억한다. 쿠키에는 키의 해시만 담긴다.
+- 변수가 없으면 게이트가 완전히 꺼진다. 기존 배포는 아무 변화 없음.
+- 위젯 API(`/api/widget*`)와 브리핑 API(`/api/briefing*`)는 자체 토큰으로 보호되므로 게이트를 거치지 않는다.
+- `/widget` 화면과 데스크톱 위젯은 게이트를 거친다. 위젯 창에서 한 번 로그인하면 그 창의 쿠키에 남는다.
+- 구현: `proxy.ts`(요청 차단·리다이렉트), `lib/access-gate.ts`(검증 로직), `app/login`, `app/api/access`.
+- 로그아웃: `DELETE /api/access`.
+
+같은 저장소로 여러 배포(예: 가족용 별도 Vercel 프로젝트)를 운영할 때는 배포마다 다른 키를 준다.
 
 ## 개발 시 주의사항
 
