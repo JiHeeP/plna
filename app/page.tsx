@@ -8,6 +8,7 @@ import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { WeeklyGoalsDisplay } from "@/components/dashboard/weekly-goals-display";
 import { YEAR_START } from "@/lib/constants";
+import { SITE_FEATURES } from "@/lib/site-profile";
 import { getISOWeekString } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -77,8 +78,8 @@ export default function Dashboard() {
       {/* 이번 주 목표 */}
       <WeeklyGoalsDisplay week={currentWeek} />
 
-      {/* 오늘의 확언 */}
-      <AffirmationCard />
+      {/* 오늘의 확언 — 가족용 프로필에서는 뺀다 */}
+      {SITE_FEATURES.affirmation ? <AffirmationCard /> : null}
 
       {/* 오늘의 할 일 */}
       <DailyTodoList date={dateStr} />

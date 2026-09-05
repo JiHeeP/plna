@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 import { getFirebaseAdminApp } from "./server";
-import { isTodoCategory, normalizeTodoCategory, type TodoCategory } from "../todo-category";
+import { TODO_CATEGORIES, isTodoCategory, normalizeTodoCategory, type TodoCategory } from "../todo-category";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -222,7 +222,7 @@ export async function patchDailyTodo(input: DailyTodoPatchInput, db?: DailyWrite
 
   if (input.category !== undefined) {
     if (!isTodoCategory(input.category)) {
-      throw new Error("category must be 'school' or 'personal'.");
+      throw new Error(`category must be one of: ${TODO_CATEGORIES.join(", ")}.`);
     }
     patch.category = input.category;
   }
