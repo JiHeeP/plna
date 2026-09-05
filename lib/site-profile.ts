@@ -25,11 +25,13 @@ export type SiteFeatures = {
   conversations: boolean;
   /** 목표 화면의 3대 축·세부 목표·분기·마일스톤·수치 트래커. 꺼지면 이번 주/이번 달 목표만 남는다 */
   fullGoals: boolean;
+  /** 통계 화면의 AI 인사이트 카드 */
+  insights: boolean;
 };
 
 export function siteFeaturesFor(profile: SiteProfile): SiteFeatures {
   const full = profile === "default";
-  return { affirmation: full, conversations: full, fullGoals: full };
+  return { affirmation: full, conversations: full, fullGoals: full, insights: full };
 }
 
 export const SITE_FEATURES = siteFeaturesFor(SITE_PROFILE);
