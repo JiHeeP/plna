@@ -7,17 +7,14 @@ import { getDDay } from "@/lib/widget";
 import { cn } from "@/lib/utils";
 import {
   TODO_CATEGORIES,
+  TODO_CATEGORY_ICONS,
   TODO_CATEGORY_LABELS,
+  emptyByCategory,
   normalizeTodoCategory,
   type TodoCategory,
 } from "@/lib/todo-category";
 import type { DailyTodo, HabitWithLog } from "@/lib/types";
 import { X } from "lucide-react";
-
-const CATEGORY_ICONS: Record<TodoCategory, string> = {
-  school: "🏫",
-  personal: "🏠",
-};
 
 const WEEKDAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 const REFRESH_MS = 5 * 60 * 1000;
@@ -46,10 +43,9 @@ export function WidgetBoard() {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<TodoCategory, string>>({
-    school: "",
-    personal: "",
-  });
+  const [drafts, setDrafts] = useState<Record<TodoCategory, string>>(() =>
+    emptyByCategory(() => ""),
+  );
   const [adding, setAdding] = useState(false);
 
   // 자정을 넘겨 창을 켜 둔 채로도 날짜가 따라가도록 새로고침마다 다시 계산한다.
@@ -106,7 +102,7 @@ export function WidgetBoard() {
   const openTodos = todos.filter((todo) => !todo.completed).length;
 
   const grouped = useMemo(() => {
-    const byCategory: Record<TodoCategory, DailyTodo[]> = { school: [], personal: [] };
+    const byCategory = emptyByCategory<DailyTodo[]>(() => []);
     todos.forEach((todo) => {
       byCategory[normalizeTodoCategory(todo.category)].push(todo);
     });
@@ -250,7 +246,7 @@ export function WidgetBoard() {
                   <div key={category}>
                     <div className="mb-1 flex items-baseline justify-between px-1">
                       <span className="text-xs font-semibold">
-                        {CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
+                        {TODO_CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
                       </span>
                       {sectionTodos.length > 0 ? (
                         <span className="text-[11px] text-muted-foreground">

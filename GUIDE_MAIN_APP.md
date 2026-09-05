@@ -126,6 +126,9 @@ KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
 
+# 사이트 프로필 (선택, 비우면 전체 기능 / mom = 가족용 단순 버전)
+NEXT_PUBLIC_PLNA_PROFILE=
+
 # 사이트 접근 키 (선택, 미설정 시 게이트 꺼짐)
 PLNA_ACCESS_KEY=
 
@@ -144,7 +147,19 @@ X_BEARER_TOKEN=
 DIGEST_TIMEZONE=Asia/Seoul
 ```
 
-## 접근 키 게이트
+## 사이트 프로필 (배포별 화면 구성)
+
+같은 저장소를 여러 Vercel 프로젝트에 배포할 때 `NEXT_PUBLIC_PLNA_PROFILE`로 화면을 갈라 쓴다. `lib/site-profile.ts`가 단일 진입점이다.
+
+| 프로필 | 확언 | 대화 탭 | 목표 화면 | 할 일 카테고리 |
+|---|---|---|---|---|
+| (비움) | 있음 | 있음 | 전체 | 학교 / 개인 |
+| `mom` | 없음 | 없음 (주소로 들어와도 홈으로) | 이번 주·이번 달 목표만 | 개인 / 모임 |
+
+- `NEXT_PUBLIC_` 변수라 **빌드 시점에 박힌다.** 값을 바꾸면 재배포해야 반영된다.
+- 할 일 카테고리 키는 `school` / `personal` / `group`. 프로필은 이 중 둘을 고른다. 프로필에 없는 키가 데이터에 남아 있으면 "개인"으로 보인다.
+- 새 화면 요소를 프로필에 따라 켜고 끄려면 `SiteFeatures`에 플래그를 하나 추가하고 `SITE_FEATURES.<플래그>`로 감싼다.
+
 
 PLNA는 1인용이라 로그인이 없다. 대신 `PLNA_ACCESS_KEY`를 설정하면 사이트 전체에 문턱이 생긴다.
 

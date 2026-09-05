@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,8 +10,15 @@ import { ConversationCard } from "@/components/conversations/conversation-card";
 import { TopicManager } from "@/components/conversations/topic-manager";
 import { Plus, Search } from "lucide-react";
 import type { Conversation } from "@/lib/types";
+import { SITE_FEATURES } from "@/lib/site-profile";
 
 export default function ConversationsPage() {
+  // 가족용 프로필에는 대화 기록 화면이 없다. 탭도 숨기지만 주소로 직접 들어와도 홈으로 보낸다.
+  if (!SITE_FEATURES.conversations) redirect("/");
+  return <ConversationsContent />;
+}
+
+function ConversationsContent() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);

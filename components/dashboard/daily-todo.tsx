@@ -12,16 +12,13 @@ import {
 } from "@/lib/local-daily-backup";
 import {
   TODO_CATEGORIES,
+  TODO_CATEGORY_ICONS,
   TODO_CATEGORY_LABELS,
+  emptyByCategory,
   normalizeTodoCategory,
   type TodoCategory,
 } from "@/lib/todo-category";
 import type { DailyTodo } from "@/lib/types";
-
-const CATEGORY_ICONS: Record<TodoCategory, string> = {
-  school: "🏫",
-  personal: "🏠",
-};
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -45,10 +42,9 @@ function normalizeTodos(items: DailyTodo[]) {
 
 export function DailyTodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
-  const [newTexts, setNewTexts] = useState<Record<TodoCategory, string>>({
-    school: "",
-    personal: "",
-  });
+  const [newTexts, setNewTexts] = useState<Record<TodoCategory, string>>(() =>
+    emptyByCategory(() => ""),
+  );
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -135,7 +131,7 @@ export function DailyTodoList({ date }: { date?: string }) {
   }, [busy, loadTodos]);
 
   const grouped = useMemo(() => {
-    const byCategory: Record<TodoCategory, DailyTodo[]> = { school: [], personal: [] };
+    const byCategory = emptyByCategory<DailyTodo[]>(() => []);
     todos.forEach((todo) => {
       byCategory[normalizeTodoCategory(todo.category)].push(todo);
     });
@@ -346,7 +342,7 @@ export function DailyTodoList({ date }: { date?: string }) {
       <div key={category} className="space-y-1">
         <div className="flex items-center justify-between pt-1">
           <span className="text-sm lg:text-base font-semibold">
-            {CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
+            {TODO_CATEGORY_ICONS[category]} {TODO_CATEGORY_LABELS[category]}
           </span>
           {sectionTodos.length > 0 && (
             <span className="text-xs lg:text-sm text-muted-foreground">

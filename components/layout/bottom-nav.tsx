@@ -4,14 +4,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Target, BarChart3, LayoutDashboard, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SITE_FEATURES, type SiteFeatures } from "@/lib/site-profile";
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  /** 지정하면 해당 기능이 켜진 프로필에서만 보인다. */
+  feature?: keyof SiteFeatures;
+};
+
+const ALL_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "홈", icon: Home },
   { href: "/goals", label: "목표", icon: Target },
   { href: "/stats", label: "통계", icon: BarChart3 },
   { href: "/weekly-dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/conversations", label: "대화", icon: MessageCircle },
+  { href: "/conversations", label: "대화", icon: MessageCircle, feature: "conversations" },
 ];
+
+const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.feature || SITE_FEATURES[item.feature]);
 
 export function BottomNav() {
   const pathname = usePathname();
