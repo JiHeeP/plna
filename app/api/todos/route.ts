@@ -7,7 +7,7 @@ import {
   writeDailyTodo,
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
-import { isTodoCategory, normalizeTodoCategory } from "@/lib/todo-category";
+import { TODO_CATEGORIES, isTodoCategory, normalizeTodoCategory } from "@/lib/todo-category";
 import { dateStringInTimeZone, resolveWidgetTimeZone } from "@/lib/widget";
 
 export async function GET(request: NextRequest) {
@@ -147,7 +147,7 @@ export async function PATCH(request: NextRequest) {
   if ("category" in body) {
     if (!isTodoCategory(body.category)) {
       return NextResponse.json(
-        { error: "category must be 'school' or 'personal'" },
+        { error: `category must be one of: ${TODO_CATEGORIES.join(", ")}` },
         { status: 400 },
       );
     }

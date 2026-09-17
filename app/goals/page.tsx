@@ -9,8 +9,24 @@ import { MonthlyGoalCard } from "@/components/goals/monthly-goal-card";
 import { MilestoneTimeline } from "@/components/goals/milestone-timeline";
 import { NumericTracker } from "@/components/goals/numeric-tracker";
 import { Milestone, NumericTarget, NumericLog, SubGoal } from "@/lib/types";
+import { SITE_FEATURES } from "@/lib/site-profile";
 
 export default function GoalsPage() {
+  return SITE_FEATURES.fullGoals ? <FullGoalsPage /> : <SimpleGoalsPage />;
+}
+
+/** 가족용 프로필: 이번 주·이번 달 목표만. 3대 축·마일스톤·수치 트래커는 싣지 않는다. */
+function SimpleGoalsPage() {
+  return (
+    <div className="px-4 pt-6 pb-24 space-y-6">
+      <h1 className="text-2xl font-bold">목표</h1>
+      <WeeklyGoalCard />
+      <MonthlyGoalCard />
+    </div>
+  );
+}
+
+function FullGoalsPage() {
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [targets, setTargets] = useState<NumericTarget[]>([]);
   const [logs, setLogs] = useState<NumericLog[]>([]);

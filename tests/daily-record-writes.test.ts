@@ -195,7 +195,7 @@ describe("daily record direct Firestore writes", () => {
 
     await assert.rejects(
       patchDailyTodo({ id: "local_school", category: "invalid" }, db),
-      /category must be 'school' or 'personal'/,
+      /category must be one of: school, personal/,
     );
   });
 
