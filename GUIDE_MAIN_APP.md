@@ -101,7 +101,9 @@ plna/
 - `PLNA_WIDGET_TOKEN` 전용 토큰으로만 접근 가능하며, 미설정 시 503으로 닫힌다
 - Firestore 읽기 쿼터를 아끼기 위해 응답을 캐시한다 (`PLNA_WIDGET_CACHE_SECONDS`, 기본 300초)
 - `/widget` — 위젯 이미지를 주기적으로 다시 불러오는 페이지 (창 하나를 위젯처럼 띄울 때)
+- `GET/POST /api/widget/habits` — 눌러서 체크하는 안드로이드 네이티브 위젯용 (`android-widget/`)
 - 설정 방법은 `docs/android-widget.md`(안드로이드), `ops/rainmeter/README.md`(윈도우 바탕화면) 참고
+
 
 ### 6. 주간 대시보드
 - 요일별 습관 달성률·할 일·기록 테이블
@@ -134,6 +136,7 @@ PLNA_ACCESS_KEY=
 
 # 홈 화면 위젯
 PLNA_WIDGET_TOKEN=
+PLNA_WIDGET_WRITE_TOKEN=
 PLNA_WIDGET_CACHE_SECONDS=300
 PLNA_WIDGET_TIMEZONE=Asia/Seoul
 

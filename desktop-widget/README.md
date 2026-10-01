@@ -19,6 +19,58 @@
 
 로그인 세션은 WebView2 프로필에 저장되므로 **첫 실행 때 한 번만 로그인**하면 된다.
 
+## Windows 가 "보안 문제로 차단" 할 때
+
+이 앱은 코드서명이 없다. Windows 는 서명 없는 프로그램을 "알 수 없는 게시자"로 보고
+막는데, 악성코드라서가 아니라 **누가 만들었는지 확인할 수 없어서**다. 직접 빌드한
+파일이면 통과시켜도 된다. 화면에 따라 둘 중 하나다.
+
+**A. 파란 창 "Windows의 PC 보호" (SmartScreen)**
+"Microsoft Defender SmartScreen에서 인식할 수 없는 앱의 시작을 차단했습니다"
+
+1. 창 안의 **추가 정보** 를 누른다 (작은 글씨 링크).
+2. 나타나는 **실행** 버튼을 누른다.
+
+이 창은 인터넷에서 받은 표시(Mark of the Web)가 붙은 파일에만 뜬다. 내 PC 에서
+`npm run build` 로 만든 파일에는 원래 안 뜨고, 다른 PC 에서 빌드해 클라우드·메신저로
+옮겼을 때 뜬다. 표시를 지우면 다음부터 안 뜬다:
+
+```powershell
+Unblock-File "<exe 또는 설치 파일 경로>"
+```
+(또는 파일 우클릭 → 속성 → 아래쪽 **차단 해제** 체크 → 확인)
+
+**B. Windows 보안 알림 "위협이 발견됨" (Defender)**
+파일이 격리되고 `Trojan:Win32/Wacatac…` 같은 이름이 붙는다. 갓 컴파일한 서명 없는
+Rust 프로그램에 자주 나오는 오탐이다.
+
+1. **Windows 보안** → **바이러스 및 위협 방지** → **보호 기록**
+2. 해당 항목 → **작업** → **허용** (또는 **복원**)
+3. 계속 잡히면 **설정 관리 → 제외 → 제외 추가** 로 exe 가 있는 폴더를 넣는다.
+
+**설치 프로그램 없이 쓰기 (권장)**
+
+NSIS 설치 파일은 exe 하나보다 검사기에 더 자주 걸린다. 설치 없이 exe 만 쓰려면:
+
+```powershell
+npm run build:portable
+# → src-tauri\target\release\plna-widget.exe  (이 파일 하나면 된다)
+```
+
+원하는 폴더(예: `%LOCALAPPDATA%\PLNA\`)에 복사해 두고 실행한다. 트레이의
+"로그인 시 자동 실행"은 그 위치를 기억하므로 나중에 옮기지 말 것.
+
+**근본 해결은 코드서명뿐이다.** Azure Trusted Signing(월 약 10달러, 신원 확인 필요) 이나
+OV 인증서(연 수십만 원)로 서명하면 위 창이 뜨지 않는다. 개인용이라 지금은 하지 않는다.
+
+## 첫 실행: 접근 키 한 번 입력
+
+사이트에 `PLNA_ACCESS_KEY` 가 설정돼 있으면 앱 전체에 로그인 문턱이 있다(`GUIDE_MAIN_APP.md`
+"사이트 접근 키"). 위젯 창도 예외가 아니라서 **첫 실행 때 창 안에 로그인 화면이 뜬다.**
+키를 한 번 입력하면 쿠키(1년)가 WebView2 프로필에 남아 그 뒤로는 바로 위젯이 보인다.
+
+로그인 화면에는 이동 손잡이가 없다 — 위젯 화면으로 넘어가면 나타난다.
+
 ## 빌드 준비물 (Windows)
 
 1. **Rust** — <https://rustup.rs> 에서 설치 (기본 옵션 그대로)
@@ -33,6 +85,7 @@ cd desktop-widget
 npm install          # @tauri-apps/cli 설치
 npm run dev          # 개발 실행 (컴파일 후 위젯 창이 뜸, 첫 빌드는 몇 분 걸림)
 npm run build        # 배포용 빌드 → src-tauri/target/release/bundle/nsis/*.exe 설치 파일
+npm run build:portable  # 설치 파일 없이 exe 하나만 → src-tauri/target/release/plna-widget.exe
 ```
 
 로컬 Next.js 서버로 띄워 보고 싶으면:
