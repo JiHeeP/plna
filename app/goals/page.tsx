@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { SubGoalOverview } from "@/components/goals/sub-goal-overview";
-import { QuarterlyGoalCard } from "@/components/goals/quarterly-goal-card";
+import { MonthGoalBoard, QuarterGoalBoard } from "@/components/goals/period-goal-board";
 import { WeeklyGoalCard } from "@/components/goals/weekly-goal-card";
 import { MonthlyGoalCard } from "@/components/goals/monthly-goal-card";
 import { NumericTracker } from "@/components/goals/numeric-tracker";
-import { NumericTarget, NumericLog, SubGoal } from "@/lib/types";
+import { NumericTarget, NumericLog } from "@/lib/types";
 import { NUMERIC_GOALS } from "@/lib/numeric-goals";
 import { SITE_FEATURES } from "@/lib/site-profile";
 
@@ -28,7 +27,6 @@ function SimpleGoalsPage() {
 function FullGoalsPage() {
   const [targets, setTargets] = useState<NumericTarget[]>(NUMERIC_GOALS);
   const [logs, setLogs] = useState<NumericLog[]>([]);
-  const [subGoals, setSubGoals] = useState<SubGoal[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -38,12 +36,10 @@ function FullGoalsPage() {
       const data = await res.json();
       setTargets(data.targets ?? NUMERIC_GOALS);
       setLogs(data.logs ?? []);
-      setSubGoals(data.subGoals ?? []);
     } catch (e) {
       console.error("목표 데이터 로딩 실패:", e);
       setTargets(NUMERIC_GOALS);
       setLogs([]);
-      setSubGoals([]);
     } finally {
       setLoading(false);
     }
@@ -67,9 +63,9 @@ function FullGoalsPage() {
 
       <NumericTracker targets={targets} logs={logs} onUpdate={fetchData} />
 
-      <SubGoalOverview subGoals={subGoals} onUpdate={fetchData} />
+      <QuarterGoalBoard />
 
-      <QuarterlyGoalCard />
+      <MonthGoalBoard />
 
       <WeeklyGoalCard />
     </div>
