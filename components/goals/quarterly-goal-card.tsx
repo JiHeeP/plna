@@ -123,7 +123,7 @@ export function QuarterlyGoalCard() {
   if (loading) {
     return (
       <div className="space-y-3">
-        <h2 className="text-lg font-bold">분기 목표</h2>
+        <h2 className="text-lg font-bold">이번달 목표</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="bg-muted/30 rounded-xl p-3 space-y-3">
@@ -139,7 +139,7 @@ export function QuarterlyGoalCard() {
 
   return (
     <PillarBoard<QuarterlyGoal>
-      title="분기 목표"
+      title="이번달 목표"
       items={goals}
       onReorder={handleReorder}
       headerRight={
@@ -224,7 +224,7 @@ function AddQuarterlyGoalForm({
     <div className="bg-white rounded-lg shadow-sm border p-2 space-y-2">
       <Input
         autoFocus
-        placeholder="분기 목표를 입력하세요"
+        placeholder="이번달 목표를 입력하세요"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

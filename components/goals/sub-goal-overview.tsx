@@ -239,7 +239,7 @@ function SubGoalCard({ sg, onUpdate }: { sg: SubGoal; onUpdate: () => void }) {
                   <Textarea
                     value={retro}
                     onChange={(e) => autoSaveRetro(e.target.value)}
-                    placeholder="이 하위목표에 대한 회고를 작성하세요..."
+                    placeholder="이 분기 목표에 대한 회고를 작성하세요..."
                     className="text-xs min-h-[60px] bg-muted/30"
                   />
                   <div className="flex justify-end">
@@ -295,7 +295,7 @@ export function SubGoalOverview({ subGoals, onUpdate }: SubGoalOverviewProps) {
 
   return (
     <PillarBoard<SubGoal>
-      title="하위목표"
+      title="분기 목표"
       items={subGoals}
       onReorder={handleReorder}
       renderCard={(sg) => <SubGoalCard sg={sg} onUpdate={onUpdate} />}
@@ -325,7 +325,7 @@ function AddSubGoalForm({
     <div className="bg-white rounded-lg shadow-sm border p-2 space-y-2">
       <Input
         autoFocus
-        placeholder="하위목표 이름"
+        placeholder="분기 목표 이름"
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {

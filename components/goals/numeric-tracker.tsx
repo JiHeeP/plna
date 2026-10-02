@@ -16,6 +16,12 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 
+const PILLAR_LABEL: Record<NumericTarget["pillar"], string> = {
+  career: "일",
+  identity: "나다운나",
+  assets: "자산",
+};
+
 interface NumericTrackerProps {
   targets: NumericTarget[];
   logs: NumericLog[];
@@ -71,7 +77,7 @@ export function NumericTracker({ targets, logs, onUpdate }: NumericTrackerProps)
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">📊 수치 추적</h2>
+      <h2 className="text-lg font-bold">🎯 수치 목표</h2>
       {targets.map((t) => {
         const latest = getLatestValue(t.id);
         const percent = Math.round((latest / t.target_value) * 100);
@@ -88,7 +94,7 @@ export function NumericTracker({ targets, logs, onUpdate }: NumericTrackerProps)
                 <div>
                   <div className="font-medium text-sm">{t.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    목표: {t.target_value}{t.unit}
+                    목표: {t.target_value.toLocaleString()}{t.unit} · {PILLAR_LABEL[t.pillar]}
                   </div>
                 </div>
                 <div className="text-right">
