@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericTarget, NumericLog } from "@/lib/types";
-import { Plus } from "lucide-react";
+import { Gem, Plus, Users, Wallet, type LucideIcon } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -16,11 +16,20 @@ import {
 } from "recharts";
 import { format, parseISO } from "date-fns";
 
-const PILLAR_LABEL: Record<NumericTarget["pillar"], string> = {
-  career: "일",
-  identity: "나다운나",
-  assets: "자산",
-};
+/** 카드 순서대로 파랑·초록·주황. 예전 1-60-100 카드와 같은 톤. */
+const CARD_STYLES: {
+  icon: LucideIcon;
+  color: string;
+  bar: string;
+  stroke: string;
+  bgColor: string;
+  borderColor: string;
+  ring: string;
+}[] = [
+  { icon: Users, color: "text-blue-600", bar: "bg-blue-600", stroke: "#2563eb", bgColor: "bg-blue-50", borderColor: "border-blue-200", ring: "ring-blue-400" },
+  { icon: Wallet, color: "text-emerald-600", bar: "bg-emerald-600", stroke: "#059669", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", ring: "ring-emerald-400" },
+  { icon: Gem, color: "text-amber-600", bar: "bg-amber-600", stroke: "#d97706", bgColor: "bg-amber-50", borderColor: "border-amber-200", ring: "ring-amber-400" },
+];
 
 interface NumericTrackerProps {
   targets: NumericTarget[];
@@ -75,100 +84,116 @@ export function NumericTracker({ targets, logs, onUpdate }: NumericTrackerProps)
       }));
   };
 
+  const selectedIndex = targets.findIndex((t) => t.id === selectedTarget);
+  const selected = selectedIndex >= 0 ? targets[selectedIndex] : null;
+  const selectedStyle = CARD_STYLES[selectedIndex % CARD_STYLES.length];
+  const chartData = selected ? getChartData(selected.id) : [];
+
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-bold">🎯 수치 목표</h2>
-      {targets.map((t) => {
-        const latest = getLatestValue(t.id);
-        const percent = Math.round((latest / t.target_value) * 100);
-        const chartData = getChartData(t.id);
-        const isSelected = selectedTarget === t.id;
+      <div className="grid grid-cols-3 gap-2">
+        {targets.map((t, i) => {
+          const style = CARD_STYLES[i % CARD_STYLES.length];
+          const Icon = style.icon;
+          const latest = getLatestValue(t.id);
+          const percent = t.target_value > 0 ? Math.round((latest / t.target_value) * 100) : 0;
+          const isSelected = selectedTarget === t.id;
 
-        return (
-          <Card key={t.id} className="py-3">
-            <CardContent className="px-4 space-y-2">
-              <button
-                className="w-full flex items-center justify-between"
-                onClick={() => setSelectedTarget(isSelected ? null : t.id)}
+          return (
+            <button
+              key={t.id}
+              type="button"
+              className="text-left"
+              onClick={() => {
+                setSelectedTarget(isSelected ? null : t.id);
+                setNewValue("");
+              }}
+            >
+              <Card
+                className={`${style.borderColor} ${style.bgColor} py-3 h-full ${
+                  isSelected ? `ring-2 ${style.ring}` : ""
+                }`}
               >
-                <div>
-                  <div className="font-medium text-sm">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    목표: {t.target_value.toLocaleString()}{t.unit} · {PILLAR_LABEL[t.pillar]}
+                <CardContent className="px-3 flex flex-col items-center text-center gap-1">
+                  <Icon className={`h-6 w-6 ${style.color}`} />
+                  <div className={`text-lg sm:text-xl font-bold whitespace-nowrap ${style.color}`}>
+                    {t.target_value.toLocaleString()}
+                    {t.unit}
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold">
-                    {latest}<span className="text-xs text-muted-foreground ml-0.5">{t.unit}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">{percent}%</div>
-                </div>
-              </button>
-
-              {/* Progress bar */}
-              <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className="h-2 rounded-full bg-blue-500 transition-all"
-                  style={{ width: `${Math.min(percent, 100)}%` }}
-                />
-              </div>
-
-              {isSelected && (
-                <div className="pt-2 space-y-3">
-                  {/* Chart */}
-                  {chartData.length > 1 && (
-                    <div className="h-32">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                          <defs>
-                            <linearGradient id={`gradient-${t.id}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} width={35} />
-                          <Tooltip />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#3b82f6"
-                            fill={`url(#gradient-${t.id})`}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                  {chartData.length <= 1 && (
-                    <div className="text-xs text-muted-foreground text-center py-2">
-                      데이터를 2개 이상 기록하면 그래프가 나타납니다
-                    </div>
-                  )}
-
-                  {/* Add value */}
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder={`현재 ${t.unit}`}
-                      value={newValue}
-                      onChange={(e) => setNewValue(e.target.value)}
-                      className="flex-1"
+                  <div className="text-xs text-muted-foreground">{t.name}</div>
+                  <div className="w-full bg-white/60 rounded-full h-2 mt-1">
+                    <div
+                      className={`h-2 rounded-full transition-all ${style.bar}`}
+                      style={{ width: `${Math.min(percent, 100)}%` }}
                     />
-                    <Button
-                      size="sm"
-                      onClick={() => addLog(t.id)}
-                      disabled={saving || !newValue.trim()}
-                    >
-                      <Plus className="h-4 w-4" />
-                      기록
-                    </Button>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+                  <div className="text-xs font-medium">
+                    {latest.toLocaleString()}
+                    {t.unit} · {percent}%
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <Card className={`${selectedStyle.borderColor} py-3`}>
+          <CardContent className="px-4 space-y-3">
+            <div className="text-sm font-medium">{selected.name} 기록</div>
+            {chartData.length > 1 ? (
+              <div className="h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id={`gradient-${selected.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={selectedStyle.stroke} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={selectedStyle.stroke} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={35} />
+                    <Tooltip />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke={selectedStyle.stroke}
+                      fill={`url(#gradient-${selected.id})`}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground text-center py-2">
+                데이터를 2개 이상 기록하면 그래프가 나타납니다
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder={`현재 ${selected.unit}`}
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newValue.trim() && !saving) addLog(selected.id);
+                }}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                onClick={() => addLog(selected.id)}
+                disabled={saving || !newValue.trim()}
+              >
+                <Plus className="h-4 w-4" />
+                기록
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
