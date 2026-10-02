@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/firebase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+import { NUMERIC_GOAL_IDS, NUMERIC_GOALS } from "@/lib/numeric-goals";
+
 const MILESTONE_STATUSES = new Set([
   "not_started",
   "in_progress",
@@ -12,9 +14,8 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
-    const [milestones, targets, logs, topics, subGoals] = await Promise.all([
+    const [milestones, logs, topics, subGoals] = await Promise.all([
       supabase.from("milestones").select("*").order("timeframe").order("created_at", { ascending: true }),
-      supabase.from("numeric_targets").select("*"),
       supabase.from("numeric_logs").select("*").order("date"),
       supabase.from("conversation_topics").select("id"),
       supabase.from("sub_goals").select("*").eq("is_active", true).order("pillar").order("sort_order"),
@@ -22,8 +23,8 @@ export async function GET() {
 
     return NextResponse.json({
       milestones: milestones.data ?? [],
-      targets: targets.data ?? [],
-      logs: logs.data ?? [],
+      targets: NUMERIC_GOALS,
+      logs: (logs.data ?? []).filter((l) => NUMERIC_GOAL_IDS.has(String(l.target_id))),
       topicCount: topics.data?.length ?? 0,
       subGoals: subGoals.data ?? [],
     });
@@ -31,7 +32,7 @@ export async function GET() {
     console.error("Goals API error:", e);
     return NextResponse.json({
       milestones: [],
-      targets: [],
+      targets: NUMERIC_GOALS,
       logs: [],
       topicCount: 0,
       subGoals: [],
@@ -50,6 +51,9 @@ export async function POST(request: NextRequest) {
   const value = Number(body.value);
   if (!body.target_id || !Number.isFinite(value)) {
     return NextResponse.json({ error: "target_id and value are required" }, { status: 400 });
+  }
+  if (!NUMERIC_GOAL_IDS.has(String(body.target_id))) {
+    return NextResponse.json({ error: "unknown numeric goal" }, { status: 400 });
   }
 
   const { data, error } = await supabase

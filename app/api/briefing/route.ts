@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+import { buildLastWeekReview, previousWeekRange } from "@/lib/briefing-weekly";
 import { createClient } from "@/lib/firebase/server";
 import { displayHabitName } from "@/lib/habit-display";
 import { getISOWeekString } from "@/lib/utils";
@@ -109,6 +110,8 @@ export async function GET(request: NextRequest) {
   const thirtyDaysAgo = shiftDate(date, -30);
   const week = getISOWeekString(parseDateString(date));
   const previousWeek = getISOWeekString(parseDateString(shiftDate(date, -7)));
+  const lastWeekRange = previousWeekRange(date);
+  const todosFrom = lastWeekRange.start < sevenDaysAgo ? lastWeekRange.start : sevenDaysAgo;
   const month = date.slice(0, 7);
   const quarter = quarterString(date);
 
@@ -128,6 +131,7 @@ export async function GET(request: NextRequest) {
     subGoals,
     currentReflection,
     previousReflection,
+    previousWeeklyGoals,
   ] = await Promise.all([
     optionalQuery(warnings, "daily_habits", [] as Row[], async () => {
       const { data, error } = await supabase
@@ -151,7 +155,7 @@ export async function GET(request: NextRequest) {
       const { data, error } = await supabase
         .from("daily_todos")
         .select("date, text, completed, category, sort_order")
-        .gte("date", sevenDaysAgo)
+        .gte("date", todosFrom)
         .lte("date", date);
       if (error) throw new Error(error.message);
       return data ?? [];
@@ -234,6 +238,14 @@ export async function GET(request: NextRequest) {
         .maybeSingle();
       if (error) throw new Error(error.message);
       return data ?? null;
+    }),
+    optionalQuery(warnings, "weekly_goals_previous", [] as Row[], async () => {
+      const { data, error } = await supabase
+        .from("weekly_goals")
+        .select("text, pillar, completed, sort_order")
+        .eq("week", lastWeekRange.week);
+      if (error) throw new Error(error.message);
+      return data ?? [];
     }),
   ]);
 
@@ -343,6 +355,15 @@ export async function GET(request: NextRequest) {
       current_week: currentReflection,
       previous_week: previousReflection,
     },
+    // 월요일 주간 점검용: 지난주(월~일) 습관·할 일·주간 목표 달성률
+    last_week_review: buildLastWeekReview({
+      date,
+      habits,
+      habitLogs,
+      todos,
+      weeklyGoals: previousWeeklyGoals,
+      displayName: displayHabitName,
+    }),
     warnings,
   });
 

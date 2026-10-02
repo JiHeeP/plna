@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, hasFirebaseServerConfig } from "@/lib/firebase/server";
+import { NUMERIC_GOALS } from "@/lib/numeric-goals";
 import {
   buildUnifiedFallback,
   type AiInsightText,
@@ -111,7 +112,6 @@ async function collectAllData(
     { data: todos },
     { data: prevTodos },
     { data: milestones },
-    { data: targets },
     { data: numericLogs },
     { data: monthlyGoals },
   ] = await Promise.all([
@@ -157,10 +157,6 @@ async function collectAllData(
     supabase
       .from("milestones")
       .select("title, pillar, timeframe, status"),
-    // 수치 목표
-    supabase
-      .from("numeric_targets")
-      .select("id, name, unit, target_value, pillar"),
     // 수치 로그 (최신값만 필요)
     supabase
       .from("numeric_logs")
@@ -179,7 +175,7 @@ async function collectAllData(
   const prevHabitLogList = prevHabitLogs ?? [];
   const prevTodoList = prevTodos ?? [];
   const milestoneList = (milestones ?? []) as MilestoneInfo[];
-  const targetList = targets ?? [];
+  const targetList = NUMERIC_GOALS;
   const logList = numericLogs ?? [];
   const journalList = (journals ?? []) as CollectedData["journals"];
   const monthlyGoalList = (monthlyGoals ?? []) as MonthlyGoalInfo[];
