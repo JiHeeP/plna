@@ -9,7 +9,6 @@
 - **언어:** TypeScript 5.9
 - **UI:** Tailwind CSS 4 + shadcn/ui + Radix UI
 - **DB:** Firebase Firestore
-- **AI 인사이트:** Kimi 2.5 (Moonshot AI) — 규칙 기반 폴백 포함
 - **기타:** dnd-kit (드래그앤드롭), Recharts (차트), date-fns
 - **포트:** 3000 (기본)
 
@@ -34,7 +33,6 @@ plna/
 │       ├── sub-goals/
 │       ├── conversations/
 │       ├── topics/
-│       ├── insights/
 │       ├── weekly-dashboard/
 │       ├── weekly-reflections/
 │       └── widget/            # 홈 화면 위젯용 요약 JSON + PNG
@@ -48,7 +46,6 @@ plna/
 ├── lib/
 │   ├── constants.ts        # 필러 라벨, 색상, 기본 습관, 확언
 │   ├── types.ts            # 전체 타입 정의
-│   ├── insights.ts         # AI 인사이트 타입 & 규칙 기반 폴백
 │   ├── utils.ts            # 유틸리티 함수
 │   ├── firebase/           # Firebase Firestore 연동 (API Route는 Admin SDK 사용)
 │   └── supabase/           # Firebase compatibility exports
@@ -84,7 +81,6 @@ plna/
 - **서브 목표** (Sub Goals) — Notion 스타일 보드 UI
 - **마일스톤 타임라인** (6개월~10년)
 - **수치 목표 트래커** (Numeric Targets)
-- **AI 인사이트 카드** — Kimi AI 또는 규칙 기반 폴백
 
 ### 3. 대화 기록
 - 대화 기록 추가/관리
@@ -123,7 +119,7 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_SERVICE_ACCOUNT_JSON=
 
-# Kimi 2.5 (AI 인사이트)
+# Kimi 2.5 (X Likes Digest 요약)
 KIMI_API_KEY=YOUR_KIMI_API_KEY
 KIMI_BASE_URL=https://api.moonshot.ai/v1
 KIMI_MODEL=kimi-k2-0711-preview
@@ -154,10 +150,10 @@ DIGEST_TIMEZONE=Asia/Seoul
 
 같은 저장소를 여러 Vercel 프로젝트에 배포할 때 `NEXT_PUBLIC_PLNA_PROFILE`로 화면을 갈라 쓴다. `lib/site-profile.ts`가 단일 진입점이다.
 
-| 프로필 | 확언 | 대화 탭 | AI 인사이트 | 목표 화면 | 할 일 카테고리 |
+| 프로필 | 확언 | 대화 탭 | 목표 화면 | 할 일 카테고리 |
 |---|---|---|---|---|---|
-| (비움) | 있음 | 있음 | 있음 | 전체 | 학교 / 개인 |
-| `mom` | 없음 | 없음 (주소로 들어와도 홈으로) | 없음 | 이번 주·이번 달 목표만 | 개인 / 모임 |
+| (비움) | 있음 | 있음 | 전체 | 학교 / 개인 |
+| `mom` | 없음 | 없음 (주소로 들어와도 홈으로) | 이번 주·이번 달 목표만 | 개인 / 모임 |
 
 - `NEXT_PUBLIC_` 변수라 **빌드 시점에 박힌다.** 값을 바꾸면 재배포해야 반영된다.
 - 할 일 카테고리 키는 `school` / `personal` / `group`. 프로필은 이 중 둘을 고른다. 프로필에 없는 키가 데이터에 남아 있으면 "개인"으로 보인다.
