@@ -3,6 +3,7 @@ const HABIT_DISPLAY_RENAMES: Record<string, string> = {
   "문해력 증진 방법 연구": "연구",
   "코딩/AI 다루기": "ai",
   "코딩": "ai",
+  "운동 30분": "운동 150회",
 };
 
 export function displayHabitName(name: string) {
