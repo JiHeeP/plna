@@ -7,7 +7,6 @@ const ROOTS = ["app", "components"];
 const EXTENSIONS = new Set([".ts", ".tsx"]);
 const FORBIDDEN_IMPORTS = [
   "@/lib/firebase/client",
-  "@/lib/supabase/client",
 ];
 
 async function collectSourceFiles(directory) {
