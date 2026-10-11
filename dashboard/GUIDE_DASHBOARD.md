@@ -30,10 +30,8 @@ dashboard/
     ├── constants.ts          # 필러 라벨
     ├── types.ts              # WeeklyGoal, WeeklyReflection, Pillar 타입
     ├── utils.ts              # 유틸리티 (getISOWeekString 등)
-    ├── firebase/
-    │   └── server.ts         # Firebase Firestore 서버 클라이언트
-    └── supabase/
-        └── server.ts         # Firebase compatibility exports
+    └── firebase/
+        └── server.ts         # Firebase Firestore 서버 클라이언트
 ```
 
 ## 메인 앱과의 차이점

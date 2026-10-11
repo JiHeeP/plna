@@ -47,8 +47,7 @@ plna/
 │   ├── constants.ts        # 필러 라벨, 색상, 기본 습관, 확언
 │   ├── types.ts            # 전체 타입 정의
 │   ├── utils.ts            # 유틸리티 함수
-│   ├── firebase/           # Firebase Firestore 연동 (API Route는 Admin SDK 사용)
-│   └── supabase/           # Firebase compatibility exports
+│   └── firebase/           # Firebase Firestore 연동 (API Route는 Admin SDK 사용)
 └── scripts/
     └── check-secrets.mjs   # 시크릿 검증 스크립트
 ```
