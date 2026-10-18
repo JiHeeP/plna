@@ -1,27 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DEFAULT_HABITS } from "@/lib/constants";
 import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
+import {
+  formatWeekLabel,
+  getISOWeekString,
+  getWeekDatesFromStr,
+  shiftWeek,
+} from "@/lib/utils";
 import type { DailyHabit, HabitLog } from "@/lib/types";
 
 function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function getWeekDates(): Date[] {
-  const today = new Date();
-  const day = today.getDay(); // 0=일, 1=월 ...
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + mondayOffset);
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
 }
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -38,9 +32,13 @@ export function WeeklyHabitGrid() {
   const [weekLogs, setWeekLogs] = useState<HabitLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
+  // 처음에는 항상 이번 주를 보여준다.
+  const [week, setWeek] = useState(() => getISOWeekString(new Date()));
+  const latestRequest = useRef(0);
 
   const today = toDateString(new Date());
-  const weekDates = useMemo(() => getWeekDates(), []);
+  const isCurrentWeek = week === getISOWeekString(new Date());
+  const weekDates = useMemo(() => getWeekDatesFromStr(week), [week]);
   const weekStart = toDateString(weekDates[0]);
   const weekEnd = toDateString(weekDates[6]);
 
@@ -59,6 +57,8 @@ export function WeeklyHabitGrid() {
   }, []);
 
   const loadData = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     try {
       const response = await fetch(
         `/api/habits?start=${encodeURIComponent(weekStart)}&end=${encodeURIComponent(weekEnd)}`,
@@ -70,6 +70,7 @@ export function WeeklyHabitGrid() {
         habits: DailyHabit[];
         logs: HabitLog[];
       };
+      if (isStale()) return;
       setHabits(data.habits || []);
       const localDates = new Set<string>();
       const localLogs: HabitLog[] = [];
@@ -98,6 +99,7 @@ export function WeeklyHabitGrid() {
       ]);
       setUseLocal(false);
     } catch {
+      if (isStale()) return;
       setUseLocal(true);
       const localHabits: DailyHabit[] = DEFAULT_HABITS.map((h, i) => ({
         id: `local_${i}`,
@@ -131,7 +133,7 @@ export function WeeklyHabitGrid() {
       });
       setWeekLogs(logs);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [readLocalHabitChecks, weekStart, weekEnd, weekDates]);
 
@@ -235,6 +237,27 @@ export function WeeklyHabitGrid() {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">주간 습관 달성률</CardTitle>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="이전 주"
+            onClick={() => setWeek(shiftWeek(week, -1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-semibold">{formatWeekLabel(week)}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            aria-label="다음 주"
+            onClick={() => setWeek(shiftWeek(week, 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="pt-0">
         {/* 날짜 헤더 */}
@@ -297,7 +320,7 @@ export function WeeklyHabitGrid() {
         {/* 주간 통계 */}
         <div className="pt-3 mt-2 border-t">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">이번 주</span>
+            <span className="text-muted-foreground">{isCurrentWeek ? "이번 주" : "이 주"}</span>
             <span className="font-medium">
               {weekCompletedCount}/{weekTotal} ({weekPct}%)
             </span>
