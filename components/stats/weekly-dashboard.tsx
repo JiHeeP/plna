@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  getISOWeekString,
   shiftWeek,
   formatWeekLabel,
 } from "@/lib/utils";
@@ -185,7 +186,8 @@ function mergeDashboardData(
 }
 
 export function WeeklyDashboard() {
-  const [week, setWeek] = useState<string | null>(null);
+  // 처음에는 항상 이번 주를 보여준다 (데이터가 있는 가장 최근 주가 아니라).
+  const [week, setWeek] = useState<string | null>(() => getISOWeekString(new Date()));
   const [data, setData] = useState<DashboardData | null>(null);
   const [loadError, setLoadError] = useState<DashboardLoadError | null>(null);
   const [loading, setLoading] = useState(true);
@@ -280,7 +282,7 @@ export function WeeklyDashboard() {
 
   useEffect(() => {
     const handleLocalBackupSynced = () => {
-      setWeek(null);
+      setWeek(getISOWeekString(new Date()));
       setData(null);
       setReloadToken((value) => value + 1);
     };
