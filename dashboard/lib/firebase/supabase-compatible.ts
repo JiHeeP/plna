@@ -98,14 +98,6 @@ function tableDefaults(collectionName: string): Record<string, unknown> {
         used_count: 0,
         source_conversation_id: null,
       };
-    case "milestones":
-      return {
-        ...timestamps,
-        updated_at: nowIso(),
-        status: "not_started",
-        target_date: null,
-        notes: null,
-      };
     case "numeric_targets":
       return { ...timestamps, unit: "count" };
     case "numeric_logs":

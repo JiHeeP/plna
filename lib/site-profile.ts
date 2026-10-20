@@ -23,7 +23,7 @@ export type SiteFeatures = {
   affirmation: boolean;
   /** 하단 "대화" 탭과 /conversations 화면 */
   conversations: boolean;
-  /** 목표 화면의 3대 축·세부 목표·분기·마일스톤·수치 트래커. 꺼지면 이번 주/이번 달 목표만 남는다 */
+  /** 목표 화면의 3대 축·세부 목표·분기·수치 트래커. 꺼지면 이번 주/이번 달 목표만 남는다 */
   fullGoals: boolean;
 };
 

@@ -379,10 +379,10 @@ describe("Supabase-compatible Firebase client", () => {
     assert.deepEqual(result.data?.map((item) => item.id), ["one", "two"]);
   });
 
-  it("supports the in filter used by pillar progress", async () => {
+  it("supports the in filter", async () => {
     const client = createSupabaseCompatClient(
       createMemoryFirestoreStore({
-        milestones: [
+        sub_goals: [
           { id: "career", pillar: "career" },
           { id: "identity", pillar: "identity" },
           { id: "assets", pillar: "assets" },
@@ -391,7 +391,7 @@ describe("Supabase-compatible Firebase client", () => {
     );
 
     const result = await client
-      .from("milestones")
+      .from("sub_goals")
       .select("pillar")
       .in("pillar", ["career", "assets"]);
 

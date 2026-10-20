@@ -22,7 +22,7 @@ FIREBASE_SERVICE_ACCOUNT_JSON=
 
 ## 2. 컬렉션
 
-주요 컬렉션: `affirmations`, `daily_habits`, `habit_logs`, `conversations`, `conversation_topics`, `milestones`, `numeric_targets`, `numeric_logs`, `kakao_tokens`, `notification_settings`, `ops_backlog_items`, `daily_todos`, `daily_journals`, `monthly_goals`, `weekly_goals`, `weekly_reflections`, `quarterly_goals`, `sub_goals`.
+주요 컬렉션: `affirmations`, `daily_habits`, `habit_logs`, `conversations`, `conversation_topics`, `numeric_targets`, `numeric_logs`, `kakao_tokens`, `notification_settings`, `ops_backlog_items`, `daily_todos`, `daily_journals`, `monthly_goals`, `weekly_goals`, `weekly_reflections`, `quarterly_goals`, `sub_goals`.
 
 API Route는 `lib/firebase/supabase-compatible.ts`의 쿼리 빌더(`from().select().eq()...` 형태)로 Firestore에 접근합니다. 이름에 Supabase가 남아 있지만 내부는 Firestore입니다.
 
