@@ -13,7 +13,7 @@ export default function GoalsPage() {
   return SITE_FEATURES.fullGoals ? <FullGoalsPage /> : <SimpleGoalsPage />;
 }
 
-/** 가족용 프로필: 이번 주·이번 달 목표만. 3대 축·마일스톤·수치 트래커는 싣지 않는다. */
+/** 가족용 프로필: 이번 주·이번 달 목표만. 3대 축·수치 트래커는 싣지 않는다. */
 function SimpleGoalsPage() {
   return (
     <div className="px-4 pt-6 pb-24 space-y-6">

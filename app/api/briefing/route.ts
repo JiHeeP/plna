@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildLastWeekReview, previousWeekRange } from "@/lib/briefing-weekly";
 import { createClient } from "@/lib/firebase/server";
 import { displayHabitName } from "@/lib/habit-display";
+import { NUMERIC_GOALS } from "@/lib/numeric-goals";
 import { getISOWeekString } from "@/lib/utils";
 import {
   dateStringInTimeZone,
@@ -90,7 +91,7 @@ async function optionalQuery<T>(
 /**
  * GET /api/briefing — 아침 브리핑용 데이터 묶음.
  * 어제 습관·일기·저널, 오늘 할 일, 최근 7일 추세, 이번 주/월/분기 목표,
- * 마일스톤·서브 목표(비전)를 한 번에 반환한다. 해석·코멘트는 호출자(Claude)가 담당.
+ * 수치 목표·서브 목표(비전)를 한 번에 반환한다. 해석·코멘트는 호출자(Claude)가 담당.
  */
 export async function GET(request: NextRequest) {
   const auth = authorize(request);
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
     weeklyGoals,
     monthlyGoals,
     quarterlyGoals,
-    milestones,
+    numericLogs,
     subGoals,
     currentReflection,
     previousReflection,
@@ -202,14 +203,13 @@ export async function GET(request: NextRequest) {
       if (error) throw new Error(error.message);
       return data ?? [];
     }),
-    optionalQuery(warnings, "milestones", [] as Row[], async () => {
+    optionalQuery(warnings, "numeric_logs", [] as Row[], async () => {
       const { data, error } = await supabase
-        .from("milestones")
-        .select("title, pillar, timeframe, status, target_date, notes");
+        .from("numeric_logs")
+        .select("target_id, date, value")
+        .in("target_id", NUMERIC_GOALS.map((goal) => goal.id));
       if (error) throw new Error(error.message);
-      return (data ?? []).filter(
-        (row: Row) => row.status === "in_progress" || row.status === "not_started",
-      );
+      return data ?? [];
     }),
     optionalQuery(warnings, "sub_goals", [] as Row[], async () => {
       const { data, error } = await supabase
@@ -322,6 +322,23 @@ export async function GET(request: NextRequest) {
       completed: row.completed === true,
     }));
 
+  // 수치 목표: 목표 화면 카드와 같은 기준(가장 최근 날짜의 기록값)으로 달성률을 낸다.
+  const numericGoals = NUMERIC_GOALS.map((goal) => {
+    const latest = numericLogs
+      .filter((log: Row) => log.target_id === goal.id)
+      .sort((a: Row, b: Row) => String(b.date ?? "").localeCompare(String(a.date ?? "")))[0];
+    const current = Number(latest?.value ?? 0);
+    return {
+      name: goal.name,
+      pillar: goal.pillar,
+      unit: goal.unit,
+      target: goal.target_value,
+      current,
+      percent: goal.target_value > 0 ? Math.round((current / goal.target_value) * 100) : 0,
+      last_logged: latest?.date ?? null,
+    };
+  });
+
   const response = NextResponse.json({
     generated_at: new Date().toISOString(),
     timezone: timeZone,
@@ -348,7 +365,7 @@ export async function GET(request: NextRequest) {
       quarterly: mapGoals(quarterlyGoals),
     },
     vision: {
-      milestones,
+      numeric_goals: numericGoals,
       sub_goals: [...subGoals].sort(bySortOrder),
     },
     reflections: {

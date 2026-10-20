@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericTarget, NumericLog } from "@/lib/types";
-import { Gem, Plus, Users, Wallet, type LucideIcon } from "lucide-react";
+import { Gem, PenLine, Plus, Users, type LucideIcon } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -27,7 +27,7 @@ const CARD_STYLES: {
   ring: string;
 }[] = [
   { icon: Users, color: "text-blue-600", bar: "bg-blue-600", stroke: "#2563eb", bgColor: "bg-blue-50", borderColor: "border-blue-200", ring: "ring-blue-400" },
-  { icon: Wallet, color: "text-emerald-600", bar: "bg-emerald-600", stroke: "#059669", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", ring: "ring-emerald-400" },
+  { icon: PenLine, color: "text-emerald-600", bar: "bg-emerald-600", stroke: "#059669", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", ring: "ring-emerald-400" },
   { icon: Gem, color: "text-amber-600", bar: "bg-amber-600", stroke: "#d97706", bgColor: "bg-amber-50", borderColor: "border-amber-200", ring: "ring-amber-400" },
 ];
 

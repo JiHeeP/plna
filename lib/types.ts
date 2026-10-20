@@ -54,18 +54,6 @@ export interface ConversationTopic {
   created_at: string;
 }
 
-export interface Milestone {
-  id: string;
-  title: string;
-  pillar: "career" | "identity" | "assets";
-  timeframe: "6month" | "1year" | "3year" | "5year" | "10year";
-  status: "not_started" | "in_progress" | "completed" | "abandoned";
-  target_date: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface NumericTarget {
   id: string;
   name: string;

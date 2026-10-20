@@ -78,7 +78,6 @@ plna/
 - **월간 목표** (Monthly Goals)
 - **주간 목표** (Weekly Goals)
 - **서브 목표** (Sub Goals) — Notion 스타일 보드 UI
-- **마일스톤 타임라인** (6개월~10년)
 - **수치 목표 트래커** (Numeric Targets)
 
 ### 3. 대화 기록

@@ -6,7 +6,7 @@ import type { NumericTarget } from "./types";
  */
 export const NUMERIC_GOALS: NumericTarget[] = [
   { id: "indie-followers", name: "팔로워", unit: "명", target_value: 100, pillar: "career", created_at: "2026-10-03" },
-  { id: "monthly-extra-income", name: "추가 수입", unit: "만원", target_value: 50, pillar: "career", created_at: "2026-10-03" },
+  { id: "molrayo-blog-posts", name: "몰라요 알아요", unit: "개", target_value: 100, pillar: "career", created_at: "2026-10-20" },
   { id: "wedding-fund", name: "결혼자금", unit: "만원", target_value: 5000, pillar: "assets", created_at: "2026-10-03" },
 ];
 
