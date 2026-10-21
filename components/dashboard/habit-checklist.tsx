@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SortableList, SortableRow } from "@/components/ui/sortable-list";
 import { DEFAULT_HABITS } from "@/lib/constants";
 import {
   LOCAL_DAILY_BACKUP_CHANGED_EVENT,
@@ -239,6 +240,21 @@ export function HabitChecklist({ date }: { date?: string }) {
     }
   };
 
+  const reorderHabits = async (ordered: DailyHabit[]) => {
+    const previous = habits;
+    setHabits(ordered);
+    try {
+      const response = await fetch("/api/habits", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order: ordered.map((h) => h.id) }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch {
+      setHabits(previous);
+    }
+  };
+
   const completedCount = habits.filter((h) => isCompleted(h.id)).length;
   const totalCount = habits.length;
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -287,42 +303,51 @@ export function HabitChecklist({ date }: { date?: string }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-1">
-        {habits.map((habit) => (
-          <div
-            key={habit.id}
-            className="flex items-center gap-2"
-          >
-            <label
-              className="flex-1 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-accent cursor-pointer"
+        <SortableList items={habits} enabled={editMode} onReorder={reorderHabits}>
+          {habits.map((habit) => (
+            <SortableRow
+              key={habit.id}
+              id={habit.id}
+              enabled={editMode}
+              className="flex items-center gap-2 bg-background"
             >
-              <Checkbox
-                checked={isCompleted(habit.id)}
-                onCheckedChange={() => toggleHabit(habit)}
-                disabled={editMode}
-              />
-              <span
-                className={`lg:text-base ${
-                  isCompleted(habit.id)
-                    ? "line-through text-muted-foreground"
-                    : ""
-                }`}
-              >
-                {habit.name}
-              </span>
-            </label>
-            {editMode && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                onClick={() => removeHabit(habit)}
-                title="삭제"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </Button>
-            )}
-          </div>
-        ))}
+              {(handle) => (
+                <>
+                  {handle}
+                  <label
+                    className="flex-1 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-accent cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={isCompleted(habit.id)}
+                      onCheckedChange={() => toggleHabit(habit)}
+                      disabled={editMode}
+                    />
+                    <span
+                      className={`lg:text-base ${
+                        isCompleted(habit.id)
+                          ? "line-through text-muted-foreground"
+                          : ""
+                      }`}
+                    >
+                      {habit.name}
+                    </span>
+                  </label>
+                  {editMode && (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                      onClick={() => removeHabit(habit)}
+                      title="삭제"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </Button>
+                  )}
+                </>
+              )}
+            </SortableRow>
+          ))}
+        </SortableList>
 
         {editMode && !showAddForm && (
           <Button

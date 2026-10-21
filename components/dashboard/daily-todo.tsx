@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, X, GripVertical, Pencil, Check } from "lucide-react";
+import { Plus, X, Pencil, Check } from "lucide-react";
+import { SortableList, SortableRow } from "@/components/ui/sortable-list";
 import {
   LOCAL_DAILY_BACKUP_CHANGED_EVENT,
   LOCAL_DAILY_BACKUP_SYNC_EVENT,
@@ -26,16 +27,6 @@ function toDateString(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function reorder<T extends { id: string }>(items: T[], activeId: string, overId: string) {
-  const from = items.findIndex((x) => x.id === activeId);
-  const to = items.findIndex((x) => x.id === overId);
-  if (from < 0 || to < 0 || from === to) return items;
-  const cloned = [...items];
-  const [moved] = cloned.splice(from, 1);
-  cloned.splice(to, 0, moved);
-  return cloned;
-}
-
 function normalizeTodos(items: DailyTodo[]) {
   return items.map((todo) => ({ ...todo, category: normalizeTodoCategory(todo.category) }));
 }
@@ -50,7 +41,6 @@ export function DailyTodoList({ date }: { date?: string }) {
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
 
@@ -299,19 +289,8 @@ export function DailyTodoList({ date }: { date?: string }) {
     }
   };
 
-  const dropOnTodo = async (target: DailyTodo) => {
-    if (!editMode || !draggingId || draggingId === target.id) return;
-    const dragging = todos.find((t) => t.id === draggingId);
-    setDraggingId(null);
-    if (!dragging) return;
-
-    const category = normalizeTodoCategory(target.category);
-    if (normalizeTodoCategory(dragging.category) !== category) return;
-
-    const reordered = reorder(grouped[category], dragging.id, target.id).map((t, i) => ({
-      ...t,
-      sort_order: i,
-    }));
+  const reorderCategory = async (category: TodoCategory, ordered: DailyTodo[]) => {
+    const reordered = ordered.map((t, i) => ({ ...t, sort_order: i }));
     const updated = todos.map((t) => reordered.find((r) => r.id === t.id) ?? t);
     setTodos(updated);
     if (useLocal) saveLocal(updated);
@@ -351,24 +330,22 @@ export function DailyTodoList({ date }: { date?: string }) {
           )}
         </div>
 
+        <SortableList
+          items={sectionTodos}
+          enabled={editMode}
+          onReorder={(ordered) => reorderCategory(category, ordered)}
+        >
         {sectionTodos.map((todo, idx) => (
-          <div
+          <SortableRow
             key={todo.id}
-            className={`flex items-center gap-2 rounded-lg px-2 py-2.5 group transition-colors ${draggingId === todo.id ? "bg-accent" : "hover:bg-accent"}`}
-            draggable={editMode}
-            onDragStart={() => editMode && setDraggingId(todo.id)}
-            onDragOver={(e) => editMode && e.preventDefault()}
-            onDrop={() => dropOnTodo(todo)}
-            onDragEnd={() => setDraggingId(null)}
+            id={todo.id}
+            enabled={editMode}
+            className="flex items-center gap-2 rounded-lg px-2 py-2.5 group transition-colors hover:bg-accent bg-background"
           >
-            {editMode ? (
+            {(handle) => (
               <>
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                <span className="text-[11px] lg:text-xs font-semibold text-muted-foreground w-6">#{idx + 1}</span>
-              </>
-            ) : (
-              <span className="text-[11px] lg:text-xs font-semibold text-muted-foreground w-6">#{idx + 1}</span>
-            )}
+            {handle}
+            <span className="text-[11px] lg:text-xs font-semibold text-muted-foreground w-6">#{idx + 1}</span>
             <Checkbox checked={todo.completed} onCheckedChange={() => toggleTodo(todo.id)} />
 
             {editMode ? (
@@ -399,13 +376,16 @@ export function DailyTodoList({ date }: { date?: string }) {
               <button
                 type="button"
                 onClick={() => deleteTodo(todo)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                className="text-muted-foreground hover:text-destructive"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
-          </div>
+              </>
+            )}
+          </SortableRow>
         ))}
+        </SortableList>
 
         <form
           onSubmit={(e) => {
