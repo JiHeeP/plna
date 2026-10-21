@@ -6,10 +6,12 @@ import { GripVertical } from "lucide-react";
 
 interface SortableCardProps {
   id: string;
+  /** false면 손잡이를 숨기고 끌기를 막는다 (수정 모드에서만 true). */
+  enabled?: boolean;
   children: React.ReactNode;
 }
 
-export function SortableCard({ id, children }: SortableCardProps) {
+export function SortableCard({ id, enabled = true, children }: SortableCardProps) {
   const {
     attributes,
     listeners,
@@ -17,7 +19,7 @@ export function SortableCard({ id, children }: SortableCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: !enabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -27,13 +29,16 @@ export function SortableCard({ id, children }: SortableCardProps) {
 
   return (
     <div ref={setNodeRef} style={style} className="group/card relative">
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/card:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-muted"
-      >
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-      </div>
+      {enabled && (
+        <div
+          {...attributes}
+          {...listeners}
+          title="끌어서 순서 바꾸기"
+          className="absolute left-1 top-1/2 -translate-y-1/2 touch-none cursor-grab active:cursor-grabbing z-10 p-0.5 rounded hover:bg-muted"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+      )}
       {children}
     </div>
   );

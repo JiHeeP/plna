@@ -47,6 +47,8 @@ interface PillarBoardProps<T extends BoardItem> {
   onReorder: (items: { id: string; pillar: string; sort_order: number }[]) => Promise<void>;
   title: string;
   headerRight?: React.ReactNode;
+  /** true일 때만 카드를 끌어 옮길 수 있다 (수정 모드). 기본값 true. */
+  dragEnabled?: boolean;
 }
 
 function DroppableColumn({ pillar, children }: { pillar: string; children: React.ReactNode }) {
@@ -71,6 +73,7 @@ export function PillarBoard<T extends BoardItem>({
   onReorder,
   title,
   headerRight,
+  dragEnabled = true,
 }: PillarBoardProps<T>) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [addingPillar, setAddingPillar] = useState<Pillar | null>(null);
@@ -220,7 +223,7 @@ export function PillarBoard<T extends BoardItem>({
                     strategy={verticalListSortingStrategy}
                   >
                     {colItems.map((item) => (
-                      <SortableCard key={item.id} id={item.id}>
+                      <SortableCard key={item.id} id={item.id} enabled={dragEnabled}>
                         {renderCard(item)}
                       </SortableCard>
                     ))}

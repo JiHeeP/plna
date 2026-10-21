@@ -226,6 +226,7 @@ function PeriodGoalBoard({ config }: { config: PeriodConfig }) {
       items={goals}
       onReorder={handleReorder}
       headerRight={header}
+      dragEnabled={editMode}
       renderCard={(goal) => (
         <div className="bg-white rounded-lg shadow-sm border p-3 pl-7 group">
           {editingId === goal.id ? (

@@ -110,6 +110,26 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
+
+  // 습관 순서 변경: { order: [habit_id, ...] } — 배열 순서대로 sort_order를 다시 매긴다.
+  if (Array.isArray(body.order)) {
+    const ids = body.order.map((id: unknown) => String(id)).filter(Boolean);
+    if (ids.length === 0 || new Set(ids).size !== ids.length) {
+      return NextResponse.json({ error: "order must be a non-empty list of unique ids" }, { status: 400 });
+    }
+    const supabase = await createClient();
+    const results = await Promise.all(
+      ids.map((id: string, index: number) =>
+        supabase.from("daily_habits").update({ sort_order: index + 1 }).eq("id", id),
+      ),
+    );
+    const failed = results.find((result) => result.error);
+    if (failed?.error) {
+      return NextResponse.json({ error: failed.error.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
+  }
+
   const { habit_id, date, completed } = body;
 
   if (!habit_id || !date) {

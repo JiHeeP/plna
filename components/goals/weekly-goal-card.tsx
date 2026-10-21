@@ -5,26 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SortableList, SortableRow } from "@/components/ui/sortable-list";
 import { WeeklyGoal } from "@/lib/types";
 import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
 import { getISOWeekString, shiftWeek, formatWeekLabel } from "@/lib/utils";
-import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, GripVertical, Pencil, Check } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Check } from "lucide-react";
 
 const PILLAR_OPTIONS: { value: WeeklyGoal["pillar"]; label: string }[] = [
   { value: "career", label: "일" },
   { value: "identity", label: "나다운나" },
   { value: "assets", label: "자산" },
 ];
-
-function reorder<T extends { id: string }>(items: T[], activeId: string, overId: string) {
-  const from = items.findIndex((x) => x.id === activeId);
-  const to = items.findIndex((x) => x.id === overId);
-  if (from < 0 || to < 0 || from === to) return items;
-  const cloned = [...items];
-  const [moved] = cloned.splice(from, 1);
-  cloned.splice(to, 0, moved);
-  return cloned;
-}
 
 export function WeeklyGoalCard() {
   const [week, setWeek] = useState(() => getISOWeekString(new Date()));
@@ -36,7 +27,6 @@ export function WeeklyGoalCard() {
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,24 +158,26 @@ export function WeeklyGoalCard() {
             <p className="text-sm text-muted-foreground py-4 text-center">이번 주 목표를 설정해보세요</p>
           ) : (
             <div className="space-y-1">
+              <SortableList
+                items={goals}
+                enabled={editMode}
+                onReorder={async (ordered) => {
+                  const updated = ordered.map((g, i) => ({ ...g, sort_order: i }));
+                  setGoals(updated);
+                  await persistOrder(updated);
+                  load();
+                }}
+              >
               {goals.map((goal, idx) => (
-                <div
+                <SortableRow
                   key={goal.id}
-                  draggable={editMode}
-                  onDragStart={() => editMode && setDraggingId(goal.id)}
-                  onDragOver={(e) => editMode && e.preventDefault()}
-                  onDrop={async () => {
-                    if (!editMode || !draggingId || draggingId === goal.id) return;
-                    const updated = reorder(goals, draggingId, goal.id).map((g, i) => ({ ...g, sort_order: i }));
-                    setGoals(updated);
-                    setDraggingId(null);
-                    await persistOrder(updated);
-                    load();
-                  }}
-                  onDragEnd={() => setDraggingId(null)}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                  id={goal.id}
+                  enabled={editMode}
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group bg-background"
                 >
-                  {editMode && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />}
+                  {(handle) => (
+                  <>
+                  {handle}
                   <span className="text-[11px] font-semibold text-muted-foreground w-5">#{idx + 1}</span>
                   <button onClick={() => toggleCompleted(goal)}>
                     {goal.completed ? <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" /> : <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />}
@@ -221,9 +213,12 @@ export function WeeklyGoalCard() {
                     )}
                   </div>
                   <Badge variant="outline" className="text-[10px] flex-shrink-0">{PILLAR_LABELS[goal.pillar]}</Badge>
-                  {editMode && <button onClick={() => deleteGoal(goal.id)} className="opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" /></button>}
-                </div>
+                  {editMode && <button onClick={() => deleteGoal(goal.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" /></button>}
+                  </>
+                  )}
+                </SortableRow>
               ))}
+              </SortableList>
             </div>
           )}
         </CardContent>
