@@ -96,3 +96,25 @@ curl -X POST http://localhost:3030/api/ops/backlog/promote \
 - `GET /api/ops/morning-briefing?date=2026-03-08`
 
 Returns 5 coaching lines with priority, ETA, deadline, and risk.
+
+## Claude API (`/api/claude/*`, 2026-10-27)
+
+Claude(예약 작업·채팅)가 쿠키 없이 일정을 읽고 추가·수정하는 길. 접근 키 게이트(`PLNA_ACCESS_KEY`) 대신 자체 토큰으로 연다.
+
+- 인증: `Authorization: Bearer <PLNA_CLAUDE_TOKEN>` 헤더만 받음 (쿼리 `?token=`은 받지 않음)
+- 토큰 미설정 → 503(닫힘) · 토큰 틀림 → 401
+- **삭제 없음.** 수정은 허용한 필드만 반영 (나머지 필드는 무시)
+
+| 경로 | GET | POST | PATCH |
+|---|---|---|---|
+| `/api/claude/todos` | `?from=YYYY-MM-DD&to=YYYY-MM-DD` (최대 31일, 이월 안 함) | `{ date, text, category?, sort_order? }` | `{ id, text?, completed?, date?, category?, sort_order? }` |
+| `/api/claude/weekly-goals` | `?week=YYYY-Www` (기본 이번 주) | `{ week, text, pillar }` | `{ id, text?, completed? }` |
+| `/api/claude/quarterly-goals` | `?quarter=YYYY-Qn` (기본 이번 분기) | — (분기 목표 추가는 사용자가 직접) | `{ id, text?, completed? }` |
+
+- `category`: `school` | `personal` · `pillar`: `career` | `identity` | `assets` · `text`: 300자 이하
+
+```bash
+curl -s https://plna.vercel.app/api/claude/todos \
+  -H "Authorization: Bearer $PLNA_CLAUDE_TOKEN" -H "Content-Type: application/json" \
+  -d '{"date":"2026-10-30","text":"조합 2곳 전화","category":"personal"}'
+```
