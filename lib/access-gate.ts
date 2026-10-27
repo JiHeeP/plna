@@ -24,13 +24,14 @@ export function isAccessGateEnabled(): boolean {
 /**
  * 게이트를 거치지 않는 경로.
  * - 로그인 화면과 로그인 API 자체
- * - 자체 토큰으로 이미 보호되는 API(위젯·브리핑). 토큰이 없으면 그쪽에서 503으로 닫힌다.
+ * - 자체 토큰으로 이미 보호되는 API(위젯·브리핑·Claude). 토큰이 없으면 그쪽에서 503으로 닫힌다.
  * - PWA 매니페스트·아이콘·정적 파일. 홈 화면 설치 때 쿠키 없이 요청된다.
  */
 export function isAccessGateExemptPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/api/access") return true;
   if (pathname === "/api/widget" || pathname.startsWith("/api/widget/")) return true;
   if (pathname === "/api/briefing" || pathname.startsWith("/api/briefing/")) return true;
+  if (pathname.startsWith("/api/claude/")) return true;
   if (pathname === "/manifest.json" || pathname.startsWith("/icons/")) return true;
   if (pathname.startsWith("/_next/")) return true;
   return /\.[a-zA-Z0-9]+$/.test(pathname);
