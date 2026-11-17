@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { auditDateFormats, classifyDate } from "../scripts/check-date-formats.mjs";
-import { decryptBackup, dumpFirestore, encryptBackup, toJsonValue } from "../scripts/backup-firestore.mjs";
+import { decryptBackup, dumpFirestore, encryptBackup, parseServiceAccount, toJsonValue } from "../scripts/backup-firestore.mjs";
 
 describe("firestore backup", () => {
   it("round-trips encryption and rejects a wrong passphrase", () => {
@@ -60,5 +60,23 @@ describe("date format audit", () => {
       ],
     };
     assert.deepEqual(await auditDateFormats(db), { daily_todos: { string: 1, timestamp: 1 } });
+  });
+});
+
+describe("service account parsing", () => {
+  const account = { project_id: "p", client_email: "a@p.iam", private_key: "k" };
+  const json = JSON.stringify(account);
+
+  it("accepts raw, quoted, double-encoded and base64 JSON", () => {
+    assert.deepEqual(parseServiceAccount(json), account);
+    assert.deepEqual(parseServiceAccount(`  ${json}\n`), account);
+    assert.deepEqual(parseServiceAccount(`'${json}'`), account);
+    assert.deepEqual(parseServiceAccount(JSON.stringify(json)), account);
+    assert.deepEqual(parseServiceAccount(Buffer.from(json).toString("base64")), account);
+  });
+
+  it("never echoes the secret in errors", () => {
+    const secret = "not-a-json-secret-value";
+    assert.throws(() => parseServiceAccount(secret), (error) => !String(error.message).includes(secret));
   });
 });

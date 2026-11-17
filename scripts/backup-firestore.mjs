@@ -81,6 +81,42 @@ export async function dumpFirestore(db) {
   return collections;
 }
 
+function describeStart(text) {
+  const first = text.trim()[0];
+  if (!first) return "비어 있음";
+  if (first === '"' || first === "'") return "따옴표로 시작";
+  if (first === "{") return "{ 로 시작하지만 JSON이 깨짐";
+  return "JSON도 base64도 아님";
+}
+
+/**
+ * 서비스 계정 값 읽기. JSON 원문 / 따옴표로 감싼 JSON / base64 모두 받는다.
+ * 공개 저장소 로그에 남지 않도록, 실패해도 값의 내용은 절대 에러 메시지에 넣지 않는다.
+ */
+export function parseServiceAccount(raw) {
+  const tryParse = (text) => {
+    try {
+      const value = JSON.parse(text);
+      if (typeof value === "string") return tryParse(value);
+      return value && typeof value === "object" && value.client_email ? value : null;
+    } catch {
+      return null;
+    }
+  };
+  let text = String(raw).trim();
+  const direct = tryParse(text);
+  if (direct) return direct;
+  if (/^'.*'$/s.test(text)) text = text.slice(1, -1).trim();
+  const unquoted = tryParse(text);
+  if (unquoted) return unquoted;
+  const decoded = tryParse(Buffer.from(text, "base64").toString("utf8").trim());
+  if (decoded) return decoded;
+  throw new Error(
+    `FIREBASE_SERVICE_ACCOUNT_JSON 값을 읽을 수 없습니다(${describeStart(String(raw))}). ` +
+      "Firebase 서비스 계정 JSON 파일 내용 전체({ 부터 } 까지)를 그대로 넣어주세요.",
+  );
+}
+
 function parseArgs(argv) {
   const options = { out: null, decrypt: null, requireEncryption: false };
   for (const arg of argv) {
@@ -98,7 +134,7 @@ export async function getDb() {
   let credential = applicationDefault();
   let projectId = process.env.FIREBASE_PROJECT_ID ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? DEFAULT_PROJECT_ID;
   if (raw) {
-    const json = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
+    const json = parseServiceAccount(raw);
     credential = cert({
       projectId: json.project_id,
       clientEmail: json.client_email,
