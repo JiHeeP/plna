@@ -51,12 +51,21 @@ interface PillarBoardProps<T extends BoardItem> {
   dragEnabled?: boolean;
 }
 
-function DroppableColumn({ pillar, children }: { pillar: string; children: React.ReactNode }) {
+function DroppableColumn({
+  pillar,
+  roomy,
+  children,
+}: {
+  pillar: string;
+  /** 수정 모드에서 빈 칸에도 카드를 끌어다 놓을 수 있게 높이를 확보한다. */
+  roomy: boolean;
+  children: React.ReactNode;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: `column-${pillar}` });
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[80px] space-y-2 transition-colors rounded-lg p-1 ${
+      className={`${roomy ? "min-h-[80px]" : ""} space-y-2 transition-colors rounded-lg p-1 ${
         isOver ? "bg-muted/50" : ""
       }`}
     >
@@ -197,9 +206,35 @@ export function PillarBoard<T extends BoardItem>({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
           {PILLAR_ORDER.map((pillar) => {
             const colItems = grouped[pillar] || [];
+            const isAdding = addingPillar === pillar;
+
+            // 비어 있는 칸은 머리줄 한 줄로 줄인다(수정 모드에선 끌어 놓을 자리가 필요해 그대로 둔다).
+            if (colItems.length === 0 && !dragEnabled && !isAdding) {
+              return (
+                <div
+                  key={pillar}
+                  className="bg-muted/30 rounded-xl px-3 py-2 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${PILLAR_BADGE_STYLES[pillar]} text-xs font-medium border`}>
+                      {PILLAR_LABELS[pillar]}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">아직 없음</span>
+                  </div>
+                  <button
+                    onClick={() => setAddingPillar(pillar)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    추가
+                  </button>
+                </div>
+              );
+            }
+
             return (
               <div key={pillar} className="bg-muted/30 rounded-xl p-3 space-y-3">
                 {/* Column header */}
@@ -217,7 +252,7 @@ export function PillarBoard<T extends BoardItem>({
                 </div>
 
                 {/* Cards */}
-                <DroppableColumn pillar={pillar}>
+                <DroppableColumn pillar={pillar} roomy={dragEnabled}>
                   <SortableContext
                     items={colItems.map((i) => i.id)}
                     strategy={verticalListSortingStrategy}
@@ -231,7 +266,7 @@ export function PillarBoard<T extends BoardItem>({
                 </DroppableColumn>
 
                 {/* Add form or button */}
-                {addingPillar === pillar ? (
+                {isAdding ? (
                   renderAddForm(pillar, () => setAddingPillar(null))
                 ) : (
                   <button

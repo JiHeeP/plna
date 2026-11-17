@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import type { DailyTodo } from "@/lib/types";
 import { AffirmationCard } from "@/components/dashboard/affirmation-card";
 import { HabitChecklist } from "@/components/dashboard/habit-checklist";
 import { DailyTodoList } from "@/components/dashboard/daily-todo";
 import { DailyJournalCard } from "@/components/dashboard/daily-journal";
 import { StreakCounter } from "@/components/dashboard/streak-counter";
-import { WeeklyGoalsDisplay } from "@/components/dashboard/weekly-goals-display";
+import { TodayFocusCard } from "@/components/dashboard/today-focus";
 import { YEAR_START } from "@/lib/constants";
 import { SITE_FEATURES } from "@/lib/site-profile";
 import { getISOWeekString } from "@/lib/utils";
@@ -34,6 +35,9 @@ export default function Dashboard() {
   const { year, month, day, dayOfWeek, dDay } = getDayInfo(selectedDate);
   const dateStr = toDateString(selectedDate);
   const currentWeek = getISOWeekString(selectedDate);
+  const isToday = dateStr === toDateString(new Date());
+  // 할 일 목록이 알려주는 현재 할 일. '오늘의 초점' 카드가 필러별 진행을 그린다.
+  const [todos, setTodos] = useState<DailyTodo[]>([]);
 
   const goToPrevDay = () => {
     const prev = new Date(selectedDate);
@@ -75,14 +79,14 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* 이번 주 목표 */}
-      <WeeklyGoalsDisplay week={currentWeek} />
+      {/* 오늘의 초점: 3필러별 오늘 진행 + 이번 주 목표 */}
+      <TodayFocusCard week={currentWeek} todos={todos} isToday={isToday} />
 
       {/* 오늘의 확언 — 가족용 프로필에서는 뺀다 */}
       {SITE_FEATURES.affirmation ? <AffirmationCard /> : null}
 
       {/* 오늘의 할 일 */}
-      <DailyTodoList date={dateStr} />
+      <DailyTodoList date={dateStr} onTodosChange={setTodos} />
 
       {/* 습관 체크리스트 */}
       <HabitChecklist date={dateStr} />

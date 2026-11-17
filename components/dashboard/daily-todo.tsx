@@ -62,8 +62,19 @@ function PillarChip({ pillar, onClick, title }: { pillar: Pillar | null | undefi
   );
 }
 
-export function DailyTodoList({ date }: { date?: string }) {
+export function DailyTodoList({
+  date,
+  onTodosChange,
+}: {
+  date?: string;
+  /** 홈의 '오늘의 초점' 카드처럼 할 일 목록을 함께 보여줄 곳에 현재 목록을 알려준다. */
+  onTodosChange?: (todos: DailyTodo[]) => void;
+}) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
+
+  useEffect(() => {
+    onTodosChange?.(todos);
+  }, [todos, onTodosChange]);
   const [newTexts, setNewTexts] = useState<Record<TodoCategory, string>>(() =>
     emptyByCategory(() => ""),
   );
