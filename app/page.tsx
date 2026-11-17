@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import type { DailyTodo } from "@/lib/types";
-import { AffirmationCard } from "@/components/dashboard/affirmation-card";
+import { AffirmationLine } from "@/components/dashboard/affirmation-line";
 import { HabitChecklist } from "@/components/dashboard/habit-checklist";
 import { DailyTodoList } from "@/components/dashboard/daily-todo";
 import { DailyJournalCard } from "@/components/dashboard/daily-journal";
-import { StreakCounter } from "@/components/dashboard/streak-counter";
 import { TodayFocusCard } from "@/components/dashboard/today-focus";
 import { YEAR_START } from "@/lib/constants";
 import { SITE_FEATURES } from "@/lib/site-profile";
@@ -74,28 +73,34 @@ export default function Dashboard() {
             <ChevronRight className="h-6 w-6" />
           </button>
         </div>
-        <p className="text-sm lg:text-base text-muted-foreground mt-0.5 text-center">
-          {year}년 · 2026 목표 D+{dDay}
-        </p>
+        {/* 확언 한 줄 — 가족용 프로필에서는 예전처럼 연도·D-day를 보여준다 */}
+        {SITE_FEATURES.affirmation ? (
+          <AffirmationLine />
+        ) : (
+          <p className="text-sm lg:text-base text-muted-foreground mt-0.5 text-center">
+            {year}년 · 2026 목표 D+{dDay}
+          </p>
+        )}
       </div>
 
-      {/* 오늘의 초점: 3필러별 오늘 진행 + 이번 주 목표 */}
-      <TodayFocusCard week={currentWeek} todos={todos} isToday={isToday} />
+      {/* 폰: 한 줄로 쌓기. 넓은 화면: 왼쪽(초점·할 일) / 오른쪽(습관·기록) 2단 */}
+      <div className="space-y-4 lg:grid lg:grid-cols-[1.25fr_1fr] lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-4 lg:space-y-6">
+          {/* 오늘의 초점: 3필러별 오늘 진행 + 이번 주 목표 */}
+          <TodayFocusCard week={currentWeek} todos={todos} isToday={isToday} />
 
-      {/* 오늘의 확언 — 가족용 프로필에서는 뺀다 */}
-      {SITE_FEATURES.affirmation ? <AffirmationCard /> : null}
+          {/* 오늘의 할 일 */}
+          <DailyTodoList date={dateStr} onTodosChange={setTodos} />
+        </div>
 
-      {/* 오늘의 할 일 */}
-      <DailyTodoList date={dateStr} onTodosChange={setTodos} />
+        <div className="space-y-4 lg:space-y-6">
+          {/* 습관 체크리스트 */}
+          <HabitChecklist date={dateStr} />
 
-      {/* 습관 체크리스트 */}
-      <HabitChecklist date={dateStr} />
-
-      {/* 오늘의 기록 */}
-      <DailyJournalCard date={dateStr} />
-
-      {/* 스트릭 카운터 */}
-      <StreakCounter />
+          {/* 오늘의 기록 */}
+          <DailyJournalCard date={dateStr} />
+        </div>
+      </div>
     </div>
   );
 }

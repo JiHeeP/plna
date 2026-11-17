@@ -5,7 +5,7 @@
  * NEXT_PUBLIC_PLNA_PROFILE 환경 변수로 정하고, 빌드 시점에 인라인되므로 배포마다 다르게 줄 수 있다.
  * 변수가 없으면 "default" — 지금까지의 화면 그대로.
  *
- *   default  본인용 전체 기능
+ *   default  본인용 전체 기능(대화 탭은 꺼 둠)
  *   mom      가족용 단순 버전: 확언·대화 없음, 목표는 이번 주/이번 달만, 할 일은 개인/모임
  */
 
@@ -29,7 +29,8 @@ export type SiteFeatures = {
 
 export function siteFeaturesFor(profile: SiteProfile): SiteFeatures {
   const full = profile === "default";
-  return { affirmation: full, conversations: full, fullGoals: full };
+  // 대화 기능은 본인용에서도 쓰지 않아 꺼 둔다(2026-11). 코드·저장된 기록은 그대로 남아 있어 다시 켤 수 있다.
+  return { affirmation: full, conversations: false, fullGoals: full };
 }
 
 export const SITE_FEATURES = siteFeaturesFor(SITE_PROFILE);
