@@ -5,15 +5,15 @@ export const PILLAR_LABELS: Record<string, string> = {
 };
 
 export const PILLAR_COLORS: Record<string, string> = {
-  career: "bg-blue-500",
-  identity: "bg-emerald-500",
-  assets: "bg-amber-500",
+  career: "bg-career",
+  identity: "bg-identity",
+  assets: "bg-assets",
 };
 
 export const PILLAR_TEXT_COLORS: Record<string, string> = {
-  career: "text-blue-600",
-  identity: "text-emerald-600",
-  assets: "text-amber-600",
+  career: "text-career-strong",
+  identity: "text-identity-strong",
+  assets: "text-assets-strong",
 };
 
 export const DEFAULT_HABITS = [

@@ -31,7 +31,7 @@ export function BottomNav() {
   if (pathname === "/widget") return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-background/85 shadow-[0_-1px_12px_rgba(16,24,40,0.05)] backdrop-blur-md">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/70 bg-background/85 shadow-[0_-1px_12px_rgba(120,60,40,0.05)] backdrop-blur-md">
       <div
         className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-2 pt-1.5 lg:max-w-6xl"
         style={{ paddingBottom: "max(0.375rem, env(safe-area-inset-bottom))" }}

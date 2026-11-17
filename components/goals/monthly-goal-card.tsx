@@ -195,7 +195,7 @@ export function MonthlyGoalCard() {
                   {handle}
                   <span className="text-[11px] font-semibold text-muted-foreground w-5">#{idx + 1}</span>
                   <button onClick={() => toggleCompleted(goal)}>
-                    {goal.completed ? <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" /> : <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />}
+                    {goal.completed ? <CheckCircle2 className="h-5 w-5 text-identity flex-shrink-0" /> : <Circle className="h-5 w-5 text-gray-400 flex-shrink-0" />}
                   </button>
                   <div className="flex-1 min-w-0">
                     {editMode ? (

@@ -26,9 +26,9 @@ const CARD_STYLES: {
   borderColor: string;
   ring: string;
 }[] = [
-  { icon: Users, color: "text-blue-600", bar: "bg-blue-600", stroke: "#2563eb", bgColor: "bg-blue-50", borderColor: "border-blue-200", ring: "ring-blue-400" },
-  { icon: PenLine, color: "text-emerald-600", bar: "bg-emerald-600", stroke: "#059669", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", ring: "ring-emerald-400" },
-  { icon: Gem, color: "text-amber-600", bar: "bg-amber-600", stroke: "#d97706", bgColor: "bg-amber-50", borderColor: "border-amber-200", ring: "ring-amber-400" },
+  { icon: Users, color: "text-career-strong", bar: "bg-career", stroke: "var(--pillar-career)", bgColor: "bg-career-soft", borderColor: "border-career-line", ring: "ring-career/70" },
+  { icon: PenLine, color: "text-identity-strong", bar: "bg-identity", stroke: "var(--pillar-identity)", bgColor: "bg-identity-soft", borderColor: "border-identity-line", ring: "ring-identity/70" },
+  { icon: Gem, color: "text-assets-strong", bar: "bg-assets", stroke: "var(--pillar-assets)", bgColor: "bg-assets-soft", borderColor: "border-assets-line", ring: "ring-assets/70" },
 ];
 
 interface NumericTrackerProps {

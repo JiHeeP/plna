@@ -63,11 +63,12 @@ function FullGoalsPage() {
 
       <NumericTracker targets={targets} logs={logs} onUpdate={fetchData} />
 
-      <QuarterGoalBoard />
+      {/* 가까운 기간부터: 이번 주 → 이번 달 → 분기 */}
+      <WeeklyGoalCard />
 
       <MonthGoalBoard />
 
-      <WeeklyGoalCard />
+      <QuarterGoalBoard />
     </div>
   );
 }

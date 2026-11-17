@@ -141,7 +141,7 @@ export function TopicManager() {
           </div>
           <div className="h-3 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-blue-500 transition-all duration-500"
+              className="h-full rounded-full bg-primary transition-all duration-500"
               style={{ width: `${Math.min(percentage, 100)}%` }}
             />
           </div>

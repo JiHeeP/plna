@@ -21,9 +21,9 @@ function toDateString(d: Date) {
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  health: "bg-emerald-400",
-  career: "bg-blue-400",
-  assets: "bg-amber-400",
+  health: "bg-identity/70",
+  career: "bg-career/70",
+  assets: "bg-assets/70",
   identity: "bg-teal-400",
 };
 

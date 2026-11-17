@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { BookOpen, NotebookPen, TrendingUp, Star, Save } from "lucide-react";
+import { BookOpen, NotebookPen, TrendingUp, Star, Save, ChevronDown } from "lucide-react";
 import { LOCAL_DAILY_BACKUP_CHANGED_EVENT } from "@/lib/local-daily-backup";
 import type { DailyDiary, DailyJournal } from "@/lib/types";
 
@@ -75,6 +75,11 @@ export function DailyJournalCard({ date }: { date?: string }) {
   const diaryStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const targetDate = useMemo(() => date ?? toDateString(new Date()), [date]);
+  // null이면 자동(내용이 있거나 저녁이면 펼침). 사용자가 누르거나 입력하면 그 상태를 따른다.
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  useEffect(() => {
+    setUserExpanded(null);
+  }, [targetDate]);
 
   const saveLocalJournal = useCallback(
     (updatedForm: JournalForm, notify = true) => {
@@ -277,6 +282,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
 
   const handleJournalChange = (key: keyof JournalForm, value: string) => {
     const updated = { ...journalForm, [key]: value };
+    setUserExpanded(true);
     setJournalForm(updated);
     saveLocalJournal(updated, false);
 
@@ -285,6 +291,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
   };
 
   const handleDiaryChange = (value: string) => {
+    setUserExpanded(true);
     setDiaryContent(value);
     saveLocalDiary(value);
 
@@ -297,7 +304,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
       <Card>
         <CardContent className="py-6">
           <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2].map((i) => (
               <div key={i} className="h-16 bg-muted animate-pulse rounded" />
             ))}
           </div>
@@ -306,11 +313,32 @@ export function DailyJournalCard({ date }: { date?: string }) {
     );
   }
 
+  // 기록은 보통 저녁에 쓴다. 비어 있는 낮에는 접어 두어 홈을 짧게 하고,
+  // 내용이 있거나 저녁(18시 이후)이면 펼친다. 머리줄을 눌러 언제든 바꿀 수 있다.
+  const filledCount =
+    JOURNAL_FIELDS.filter(({ key }) => journalForm[key].trim() !== "").length +
+    (diaryContent.trim() !== "" ? 1 : 0);
+  const autoExpanded = filledCount > 0 || new Date().getHours() >= 18;
+  const expanded = userExpanded ?? autoExpanded;
+
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base lg:text-lg">오늘의 기록</CardTitle>
+      <CardHeader className={expanded ? "pb-2" : undefined}>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setUserExpanded(!expanded)}
+            aria-expanded={expanded}
+            className="flex flex-1 items-center gap-2 text-left"
+          >
+            <CardTitle className="text-base lg:text-lg">오늘의 기록</CardTitle>
+            <span className="text-xs lg:text-sm text-muted-foreground">
+              {filledCount}/{JOURNAL_FIELDS.length + 1} 작성
+            </span>
+            <ChevronDown
+              className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+          </button>
           {journalSaving && (
             <span className="text-xs text-muted-foreground">저장 중...</span>
           )}
@@ -322,6 +350,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
           )}
         </div>
       </CardHeader>
+      {expanded && (
       <CardContent className="pt-0 space-y-4">
         {JOURNAL_FIELDS.map(({ key, label, icon: Icon, placeholder }) => (
           <div key={key} className="space-y-1.5">
@@ -387,6 +416,7 @@ export function DailyJournalCard({ date }: { date?: string }) {
           </Button>
         </div>
       </CardContent>
+      )}
     </Card>
   );
 }
