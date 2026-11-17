@@ -14,7 +14,7 @@ export function AffirmationCard() {
   const canExpand = AFFIRMATIONS.length > 1;
 
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card className="border-primary/20 bg-primary/5 py-0 gap-0">
       <CardContent className="py-3 px-5">
         <button
           type="button"

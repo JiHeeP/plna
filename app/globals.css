@@ -6,8 +6,23 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-career: var(--pillar-career);
+  --color-career-soft: color-mix(in oklch, var(--pillar-career) 9%, white);
+  --color-career-tint: color-mix(in oklch, var(--pillar-career) 18%, white);
+  --color-career-line: color-mix(in oklch, var(--pillar-career) 30%, white);
+  --color-career-strong: color-mix(in oklch, var(--pillar-career) 82%, black);
+  --color-identity: var(--pillar-identity);
+  --color-identity-soft: color-mix(in oklch, var(--pillar-identity) 9%, white);
+  --color-identity-tint: color-mix(in oklch, var(--pillar-identity) 18%, white);
+  --color-identity-line: color-mix(in oklch, var(--pillar-identity) 30%, white);
+  --color-identity-strong: color-mix(in oklch, var(--pillar-identity) 82%, black);
+  --color-assets: var(--pillar-assets);
+  --color-assets-soft: color-mix(in oklch, var(--pillar-assets) 9%, white);
+  --color-assets-tint: color-mix(in oklch, var(--pillar-assets) 18%, white);
+  --color-assets-line: color-mix(in oklch, var(--pillar-assets) 30%, white);
+  --color-assets-strong: color-mix(in oklch, var(--pillar-assets) 82%, black);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Pretendard Variable", Pretendard, var(--font-geist-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -49,37 +64,42 @@
 
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.991 0.004 95);
-  --foreground: oklch(0.235 0.012 264);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.012 264);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.012 264);
-  --primary: oklch(0.55 0.15 264);
-  --primary-foreground: oklch(0.99 0.005 95);
-  --secondary: oklch(0.96 0.008 264);
-  --secondary-foreground: oklch(0.32 0.03 264);
-  --muted: oklch(0.965 0.006 264);
-  --muted-foreground: oklch(0.53 0.02 264);
-  --accent: oklch(0.95 0.025 264);
-  --accent-foreground: oklch(0.42 0.11 264);
-  --destructive: oklch(0.585 0.2 25);
-  --border: oklch(0.912 0.006 264);
-  --input: oklch(0.912 0.006 264);
-  --ring: oklch(0.62 0.13 264);
-  --chart-1: oklch(0.62 0.15 264);
-  --chart-2: oklch(0.68 0.13 190);
-  --chart-3: oklch(0.72 0.15 145);
-  --chart-4: oklch(0.78 0.15 85);
-  --chart-5: oklch(0.7 0.17 25);
-  --sidebar: oklch(0.985 0.004 264);
-  --sidebar-foreground: oklch(0.235 0.012 264);
-  --sidebar-primary: oklch(0.55 0.15 264);
-  --sidebar-primary-foreground: oklch(0.99 0.005 95);
-  --sidebar-accent: oklch(0.95 0.025 264);
-  --sidebar-accent-foreground: oklch(0.42 0.11 264);
-  --sidebar-border: oklch(0.912 0.006 264);
-  --sidebar-ring: oklch(0.62 0.13 264);
+  /* 색 조합: 코랄 & 민트. 바탕은 살구빛, 강조는 산호색. */
+  /* 삶의 3필러 색. 필러 칩·초점 카드·목표 보드가 모두 이 값을 쓴다. */
+  --pillar-career: #e0675a;
+  --pillar-identity: #3fae92;
+  --pillar-assets: #ee9a3e;
+  --background: #fff6f2;
+  --foreground: #3a2a28;
+  --card: #ffffff;
+  --card-foreground: #3a2a28;
+  --popover: #ffffff;
+  --popover-foreground: #3a2a28;
+  --primary: #d9574b;
+  --primary-foreground: #ffffff;
+  --secondary: #fdeeea;
+  --secondary-foreground: #4a3331;
+  --muted: #f8ede9;
+  --muted-foreground: #8a716c;
+  --accent: #fde6e1;
+  --accent-foreground: #b8443a;
+  --destructive: #c62f2f;
+  --border: #f0e1dc;
+  --input: #ead7d1;
+  --ring: #e0675a;
+  --chart-1: #e0675a;
+  --chart-2: #3fae92;
+  --chart-3: #ee9a3e;
+  --chart-4: #7aa7d9;
+  --chart-5: #b38ad6;
+  --sidebar: #fffaf8;
+  --sidebar-foreground: #3a2a28;
+  --sidebar-primary: #d9574b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fde6e1;
+  --sidebar-accent-foreground: #b8443a;
+  --sidebar-border: #f0e1dc;
+  --sidebar-ring: #e0675a;
 }
 
 .dark {

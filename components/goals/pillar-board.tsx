@@ -28,9 +28,9 @@ import type { Pillar } from "@/lib/types";
 const PILLAR_ORDER: Pillar[] = ["career", "identity", "assets"];
 
 const PILLAR_BADGE_STYLES: Record<string, string> = {
-  career: "bg-blue-100 text-blue-700 border-blue-200",
-  identity: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  assets: "bg-amber-100 text-amber-700 border-amber-200",
+  career: "bg-career-tint text-career-strong border-career-line",
+  identity: "bg-identity-tint text-identity-strong border-identity-line",
+  assets: "bg-assets-tint text-assets-strong border-assets-line",
 };
 
 interface BoardItem {

@@ -5,6 +5,13 @@ import Link from "next/link";
 import { CheckCircle2, Circle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PILLAR_COLORS, PILLAR_TEXT_COLORS } from "@/lib/constants";
+
+// 필러 칸 바탕색(옅은 틴트). 할 일이 있는 칸만 칠한다.
+const PILLAR_TILE_STYLES: Record<string, string> = {
+  career: "bg-career-soft/70 border-career-tint",
+  identity: "bg-identity-soft/70 border-identity-tint",
+  assets: "bg-assets-soft/70 border-assets-tint",
+};
 import { TODO_PILLARS, TODO_PILLAR_SHORT_LABELS, summarizeWeeklyPillars } from "@/lib/todo-pillar";
 import type { DailyTodo, WeeklyGoal } from "@/lib/types";
 
@@ -57,7 +64,7 @@ export function TodayFocusCard({
             return (
               <div
                 key={row.pillar}
-                className={`rounded-lg border p-2 lg:p-3 space-y-1.5 ${empty ? "border-dashed bg-muted/40" : ""}`}
+                className={`rounded-xl border p-2.5 lg:p-3 space-y-2 ${empty ? "border-dashed bg-muted/30" : PILLAR_TILE_STYLES[row.pillar]}`}
               >
                 <div className={`text-xs lg:text-sm font-semibold ${PILLAR_TEXT_COLORS[row.pillar]}`}>
                   {TODO_PILLAR_SHORT_LABELS[row.pillar]}
@@ -72,7 +79,7 @@ export function TodayFocusCard({
                     <span className="text-xs lg:text-sm font-normal text-muted-foreground"> / {row.todoTotal}</span>
                   </div>
                 )}
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-1.5 rounded-full bg-black/5 overflow-hidden">
                   <div
                     className={`h-full rounded-full ${PILLAR_COLORS[row.pillar]}`}
                     style={{ width: `${pct}%` }}
@@ -94,7 +101,7 @@ export function TodayFocusCard({
             {TODO_PILLARS.flatMap((pillar) => goals.filter((g) => g.pillar === pillar)).map((goal) => (
               <div key={goal.id} className="flex items-center gap-2 py-0.5">
                 {goal.completed ? (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-identity flex-shrink-0" />
                 ) : (
                   <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
                 )}

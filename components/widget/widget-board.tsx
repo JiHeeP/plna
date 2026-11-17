@@ -192,11 +192,11 @@ export function WidgetBoard() {
           <span className="text-muted-foreground">
             습관 <span className="font-bold text-foreground">{doneCount}/{habits.length}</span>
           </span>
-          <span className="font-bold text-blue-600">{percent}%</span>
+          <span className="font-bold text-primary">{percent}%</span>
         </div>
         <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-blue-600 transition-all"
+            className="h-full rounded-full bg-primary transition-all"
             style={{ width: `${percent}%` }}
           />
         </div>
