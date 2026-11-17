@@ -10,6 +10,8 @@ export interface FirestoreCompatStore {
   delete(collectionName: string, id: string): Promise<void>;
   /** 여러 문서를 한 번에(전부 성공 또는 전부 실패) 고친다. 없는 문서가 있으면 아무것도 바꾸지 않는다. */
   updateMany?(collectionName: string, items: FirestoreBatchUpdate[]): Promise<void>;
+  /** 문서를 읽지 않고 개수만 센다(Firestore 집계 쿼리). 1,000건당 읽기 1회로 계산된다. */
+  count?(collectionName: string, options: FirestoreCompatQueryOptions): Promise<number>;
 }
 
 export interface FirestoreBatchUpdate {
@@ -413,11 +415,28 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
 
   private async execute(): Promise<SupabaseCompatResult<TData>> {
     try {
+      if (this.canUseCountAggregate()) {
+        const count = await this.store.count!(this.collectionName, { filters: this.filters });
+        return { data: null, error: null, count } as SupabaseCompatResult<TData>;
+      }
       const rows = await this.executeAction();
       return this.formatRows(rows) as SupabaseCompatResult<TData>;
     } catch (error) {
       return { data: null, error: toError(error), count: null };
     }
+  }
+
+  /** select("id", { count: "exact", head: true })처럼 개수만 필요하면 문서를 다 읽지 않고 집계로 센다. */
+  private canUseCountAggregate() {
+    return (
+      this.action === "select" &&
+      this.selectOptions.head === true &&
+      this.selectOptions.count === "exact" &&
+      typeof this.store.count === "function" &&
+      this.orExpression === null &&
+      this.filters.length <= 1 &&
+      this.filters.every((filter) => filter.field !== "date")
+    );
   }
 
   private async executeAction(): Promise<FirestoreRecord[]> {

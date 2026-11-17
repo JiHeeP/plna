@@ -134,6 +134,7 @@ type AdminFirestoreQuery = {
   }>;
   where: (field: string, operator: string, value: unknown) => AdminFirestoreQuery;
   limit: (count: number) => AdminFirestoreQuery;
+  count?: () => { get: () => Promise<{ data: () => { count: number } }> };
 };
 
 export function createWebFirestoreStore(db: Firestore): FirestoreCompatStore {
@@ -189,6 +190,7 @@ export function createAdminFirestoreStore(db: {
     }>;
     where: (field: string, operator: string, value: unknown) => AdminFirestoreQuery;
     limit: (count: number) => AdminFirestoreQuery;
+    count?: () => { get: () => Promise<{ data: () => { count: number } }> };
     doc: (id?: string) => {
       id: string;
       set: (data: Record<string, unknown>, options?: { merge: boolean }) => Promise<unknown>;
@@ -245,6 +247,17 @@ export function createAdminFirestoreStore(db: {
     },
     async delete(collectionName: string, id: string) {
       await db.collection(collectionName).doc(id).delete();
+    },
+    async count(collectionName: string, options: FirestoreCompatQueryOptions) {
+      let query: AdminFirestoreQuery = db.collection(collectionName);
+      for (const filter of options.filters ?? []) {
+        query = query.where(filter.field, firestoreOperator(filter.operator), filter.value);
+      }
+      if (typeof query.count === "function") {
+        const snapshot = await query.count().get();
+        return snapshot.data().count;
+      }
+      return (await query.get()).docs.length;
     },
     async updateMany(collectionName: string, items: FirestoreBatchUpdate[]) {
       if (!db.batch) {

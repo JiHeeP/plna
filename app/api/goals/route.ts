@@ -8,15 +8,17 @@ export async function GET() {
     const supabase = await createClient();
 
     const [logs, topics, subGoals] = await Promise.all([
-      supabase.from("numeric_logs").select("*").order("date"),
-      supabase.from("conversation_topics").select("id"),
+      // 현재 쓰는 수치 목표의 기록만 읽는다(예전 목표 기록까지 전부 읽지 않게).
+      supabase.from("numeric_logs").select("*").in("target_id", [...NUMERIC_GOAL_IDS]).order("date"),
+      // 개수만 필요하므로 문서를 읽지 않고 집계로 센다.
+      supabase.from("conversation_topics").select("id", { count: "exact", head: true }),
       supabase.from("sub_goals").select("*").eq("is_active", true).order("pillar").order("sort_order"),
     ]);
 
     return NextResponse.json({
       targets: NUMERIC_GOALS,
       logs: (logs.data ?? []).filter((l) => NUMERIC_GOAL_IDS.has(String(l.target_id))),
-      topicCount: topics.data?.length ?? 0,
+      topicCount: topics.count ?? 0,
       subGoals: subGoals.data ?? [],
     });
   } catch (e) {
