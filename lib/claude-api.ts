@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
+import { parseGoalLinks, type GoalLinks } from "./goal-links";
 import { isTodoCategory } from "./todo-category";
 
 /**
@@ -196,6 +197,10 @@ export interface WeeklyGoalCreate {
   week: string;
   text: string;
   pillar: ClaudePillar;
+  /** 이 주간 목표가 향하는 월 목표 id (없으면 null) */
+  monthly_goal_id: string | null;
+  /** 이 주간 목표가 향하는 분기 목표 id (없으면 null) */
+  quarterly_goal_id: string | null;
 }
 
 export function parseWeeklyGoalCreate(body: unknown): Parsed<WeeklyGoalCreate> {
@@ -205,7 +210,18 @@ export function parseWeeklyGoalCreate(body: unknown): Parsed<WeeklyGoalCreate> {
   const text = cleanText(record.text);
   if (!text.ok) return text;
   if (!isPillar(record.pillar)) return { ok: false, error: "pillar는 career/identity/assets 중 하나여야 합니다." };
-  return { ok: true, value: { week: record.week, text: text.value, pillar: record.pillar } };
+  const links = parseGoalLinks(record);
+  if (!links.ok) return links;
+  return {
+    ok: true,
+    value: {
+      week: record.week,
+      text: text.value,
+      pillar: record.pillar,
+      monthly_goal_id: links.value.monthly_goal_id ?? null,
+      quarterly_goal_id: links.value.quarterly_goal_id ?? null,
+    },
+  };
 }
 
 export interface GoalPatch {
@@ -232,6 +248,29 @@ export function parseGoalPatch(body: unknown): Parsed<GoalPatch> {
   }
   if (Object.keys(patch).length === 1) return { ok: false, error: "바꿀 필드가 없습니다." };
   return { ok: true, value: patch };
+}
+
+export type WeeklyGoalPatch = GoalPatch & GoalLinks;
+
+/** 주간 목표 수정: 문구·완료 여부 + 상위 목표 연결(monthly_goal_id·quarterly_goal_id, null이면 연결 해제). */
+export function parseWeeklyGoalPatch(body: unknown): Parsed<WeeklyGoalPatch> {
+  const record = asRecord(body);
+  if (!record) return { ok: false, error: "JSON 객체가 필요합니다." };
+  const links = parseGoalLinks(record);
+  if (!links.ok) return links;
+  const hasLinks = Object.keys(links.value).length > 0;
+  const base = parseGoalPatch(record);
+  if (!base.ok) {
+    if (!hasLinks || base.error !== "바꿀 필드가 없습니다.") return base;
+    const id = cleanId(record.id);
+    if (!id) return { ok: false, error: "id는 필수입니다." };
+    return { ok: true, value: { id, ...links.value } };
+  }
+  return { ok: true, value: { ...base.value, ...links.value } };
+}
+
+export function isMonthString(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
 export async function readJson(request: Request): Promise<unknown> {

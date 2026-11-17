@@ -10,6 +10,7 @@ import {
   parseTodoCreate,
   parseTodoPatch,
   parseWeeklyGoalCreate,
+  parseWeeklyGoalPatch,
 } from "../lib/claude-api";
 
 function req(headers: Record<string, string> = {}) {
@@ -97,8 +98,17 @@ describe("claude api validation", () => {
   it("validates weekly goal creation", () => {
     assert.deepEqual(parseWeeklyGoalCreate({ week: "2026-W44", text: "조합 문의", pillar: "assets" }), {
       ok: true,
-      value: { week: "2026-W44", text: "조합 문의", pillar: "assets" },
+      value: { week: "2026-W44", text: "조합 문의", pillar: "assets", monthly_goal_id: null, quarterly_goal_id: null },
     });
+    assert.deepEqual(
+      parseWeeklyGoalCreate({ week: "2026-W44", text: "x", pillar: "career", monthly_goal_id: " m1 ", quarterly_goal_id: "q1" }),
+      {
+        ok: true,
+        value: { week: "2026-W44", text: "x", pillar: "career", monthly_goal_id: "m1", quarterly_goal_id: "q1" },
+      },
+    );
+    assert.equal(parseWeeklyGoalCreate({ week: "2026-W44", text: "x", pillar: "career", monthly_goal_id: 3 }).ok, false);
+    assert.equal(parseWeeklyGoalCreate({ week: "2026-W44", text: "x", pillar: "career", monthly_goal_id: "a/b" }).ok, false);
     assert.equal(parseWeeklyGoalCreate({ week: "2026-44", text: "x", pillar: "assets" }).ok, false);
     assert.equal(parseWeeklyGoalCreate({ week: "2026-W44", text: "x", pillar: "general" }).ok, false);
   });
@@ -109,5 +119,24 @@ describe("claude api validation", () => {
       value: { id: "g1", text: "새 문구" },
     });
     assert.equal(parseGoalPatch({ id: "g1", pillar: "career" }).ok, false);
+  });
+});
+
+describe("weekly goal patch (claude)", () => {
+  it("accepts link-only patches and null to unlink", () => {
+    assert.deepEqual(parseWeeklyGoalPatch({ id: "w1", monthly_goal_id: "m1" }), {
+      ok: true,
+      value: { id: "w1", monthly_goal_id: "m1" },
+    });
+    assert.deepEqual(parseWeeklyGoalPatch({ id: "w1", quarterly_goal_id: null, completed: true }), {
+      ok: true,
+      value: { id: "w1", completed: true, quarterly_goal_id: null },
+    });
+    assert.equal(parseWeeklyGoalPatch({ id: "w1" }).ok, false);
+    assert.equal(parseWeeklyGoalPatch({ monthly_goal_id: "m1" }).ok, false);
+    assert.deepEqual(parseWeeklyGoalPatch({ id: "w1", week: "2026-W01", text: "a" }), {
+      ok: true,
+      value: { id: "w1", text: "a" },
+    });
   });
 });

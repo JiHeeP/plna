@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 
 import type {
+  FirestoreBatchUpdate,
   FilterOperator,
   FirestoreCompatQueryOptions,
   FirestoreCompatStore,
@@ -194,6 +195,11 @@ export function createAdminFirestoreStore(db: {
       delete: () => Promise<unknown>;
     };
   };
+  batch?: () => {
+    // 메서드 문법이어야 Admin SDK의 WriteBatch(오버로드 있음)를 그대로 받을 수 있다.
+    update(ref: never, data: Record<string, unknown>): unknown;
+    commit(): Promise<unknown>;
+  };
 }): FirestoreCompatStore {
   return {
     async list(collectionName: string) {
@@ -239,6 +245,28 @@ export function createAdminFirestoreStore(db: {
     },
     async delete(collectionName: string, id: string) {
       await db.collection(collectionName).doc(id).delete();
+    },
+    async updateMany(collectionName: string, items: FirestoreBatchUpdate[]) {
+      if (!db.batch) {
+        for (const item of items) {
+          await db
+            .collection(collectionName)
+            .doc(item.id)
+            .set(sanitizeForFirestore(item.data) as Record<string, unknown>, { merge: true });
+        }
+        return;
+      }
+      // Firestore 배치는 최대 500건. update()는 문서가 없으면 배치 전체를 실패시켜 잘못된 id로 빈 문서가 생기지 않는다.
+      for (let start = 0; start < items.length; start += 500) {
+        const batch = db.batch();
+        for (const item of items.slice(start, start + 500)) {
+          batch.update(
+            db.collection(collectionName).doc(item.id) as never,
+            sanitizeForFirestore(item.data) as Record<string, unknown>,
+          );
+        }
+        await batch.commit();
+      }
     },
   };
 }

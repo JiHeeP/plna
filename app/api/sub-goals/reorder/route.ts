@@ -10,21 +10,15 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "items 배열이 필요합니다" }, { status: 400 });
     }
 
-    const updates = items.map(
-      (item: { id: string; pillar: string; sort_order: number }) =>
-        supabase
-          .from("sub_goals")
-          .update({
-            pillar: item.pillar,
-            sort_order: item.sort_order,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", item.id)
+    const now = new Date().toISOString();
+    const { error } = await supabase.updateMany(
+      "sub_goals",
+      items.map((item: { id: string; pillar: string; sort_order: number }) => ({
+        id: String(item.id),
+        data: { pillar: item.pillar, sort_order: item.sort_order, updated_at: now },
+      })),
     );
-
-    const results = await Promise.all(updates);
-    const failed = results.find((r) => r.error);
-    if (failed?.error) throw failed.error;
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (e) {
