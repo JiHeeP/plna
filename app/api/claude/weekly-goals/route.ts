@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { authorizeClaude, isWeekString, parseGoalPatch, parseWeeklyGoalCreate, readJson } from "@/lib/claude-api";
+import { authorizeClaude, isWeekString, parseWeeklyGoalCreate, parseWeeklyGoalPatch, readJson } from "@/lib/claude-api";
+import { verifyGoalLinks } from "@/lib/goal-links";
 import { createClient } from "@/lib/firebase/server";
 import { getISOWeekString } from "@/lib/utils";
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ week, goals: data ?? [] });
 }
 
-/** POST /api/claude/weekly-goals — 주간 목표 추가. body: { week, text, pillar } */
+/** POST /api/claude/weekly-goals — 주간 목표 추가. body: { week, text, pillar, monthly_goal_id?, quarterly_goal_id? } */
 export async function POST(request: NextRequest) {
   const auth = authorizeClaude(request);
   if (!auth.ok) return deny(auth);
@@ -43,6 +44,9 @@ export async function POST(request: NextRequest) {
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   const supabase = await createClient();
+  const linkError = await verifyGoalLinks(supabase, parsed.value);
+  if (linkError) return NextResponse.json({ error: linkError }, { status: 400 });
+
   const { count } = await supabase
     .from("weekly_goals")
     .select("id", { count: "exact", head: true })
@@ -58,16 +62,19 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ goal: data });
 }
 
-/** PATCH /api/claude/weekly-goals — 문구·완료 여부만 수정. body: { id, text?, completed? } */
+/** PATCH /api/claude/weekly-goals — 문구·완료 여부·상위 목표 연결 수정. body: { id, text?, completed?, monthly_goal_id?, quarterly_goal_id? } */
 export async function PATCH(request: NextRequest) {
   const auth = authorizeClaude(request);
   if (!auth.ok) return deny(auth);
 
-  const parsed = parseGoalPatch(await readJson(request));
+  const parsed = parseWeeklyGoalPatch(await readJson(request));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   const { id, ...updates } = parsed.value;
   const supabase = await createClient();
+  const linkError = await verifyGoalLinks(supabase, updates);
+  if (linkError) return NextResponse.json({ error: linkError }, { status: 400 });
+
   const { error } = await supabase
     .from("weekly_goals")
     .update({ ...updates, updated_at: new Date().toISOString() })

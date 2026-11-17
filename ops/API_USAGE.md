@@ -108,10 +108,12 @@ Claude(예약 작업·채팅)가 쿠키 없이 일정을 읽고 추가·수정�
 | 경로 | GET | POST | PATCH |
 |---|---|---|---|
 | `/api/claude/todos` | `?from=YYYY-MM-DD&to=YYYY-MM-DD` (최대 31일, 이월 안 함) | `{ date, text, category?, sort_order? }` | `{ id, text?, completed?, date?, category?, sort_order? }` |
-| `/api/claude/weekly-goals` | `?week=YYYY-Www` (기본 이번 주) | `{ week, text, pillar }` | `{ id, text?, completed? }` |
+| `/api/claude/weekly-goals` | `?week=YYYY-Www` (기본 이번 주) | `{ week, text, pillar, monthly_goal_id?, quarterly_goal_id? }` | `{ id, text?, completed?, monthly_goal_id?, quarterly_goal_id? }` |
+| `/api/claude/monthly-goals` | `?month=YYYY-MM` (기본 이번 달) | — (읽기 전용) | — |
 | `/api/claude/quarterly-goals` | `?quarter=YYYY-Qn` (기본 이번 분기) | — (분기 목표 추가는 사용자가 직접) | `{ id, text?, completed? }` |
 
 - `category`: `school` | `personal` · `pillar`: `career` | `identity` | `assets` · `text`: 300자 이하
+- 주간 목표 연결(2026-11-17): `monthly_goal_id`·`quarterly_goal_id`에 월/분기 목표 id를 넣으면 "이 주간 목표가 어느 상위 목표를 위한 것인지"가 저장됨. `null`이면 연결 해제. 없는 id면 400. 연결 도입 전 목표는 두 칸이 비어 있음(null 취급).
 
 ```bash
 curl -s https://plna.vercel.app/api/claude/todos \

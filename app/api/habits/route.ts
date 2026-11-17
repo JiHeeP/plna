@@ -118,14 +118,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "order must be a non-empty list of unique ids" }, { status: 400 });
     }
     const supabase = await createClient();
-    const results = await Promise.all(
-      ids.map((id: string, index: number) =>
-        supabase.from("daily_habits").update({ sort_order: index + 1 }).eq("id", id),
-      ),
+    const { error } = await supabase.updateMany(
+      "daily_habits",
+      ids.map((id: string, index: number) => ({ id, data: { sort_order: index + 1 } })),
     );
-    const failed = results.find((result) => result.error);
-    if (failed?.error) {
-      return NextResponse.json({ error: failed.error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ success: true });
   }

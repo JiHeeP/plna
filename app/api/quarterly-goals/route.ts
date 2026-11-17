@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/firebase/server";
 import { NextResponse, NextRequest } from "next/server";
+import { parseGoalUpdate } from "@/lib/goal-links";
 
 function getCurrentQuarter() {
   const now = new Date();
@@ -66,12 +67,11 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const body = await req.json();
-    const { id, ...updates } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "id는 필수입니다" }, { status: 400 });
+    const parsed = parseGoalUpdate(await req.json().catch(() => null));
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { id, updates } = parsed.value;
 
     const { error } = await supabase
       .from("quarterly_goals")

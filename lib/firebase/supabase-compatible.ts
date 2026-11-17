@@ -8,6 +8,13 @@ export interface FirestoreCompatStore {
   create(collectionName: string, data: Record<string, unknown>): Promise<FirestoreRecord>;
   update(collectionName: string, id: string, data: Record<string, unknown>): Promise<FirestoreRecord>;
   delete(collectionName: string, id: string): Promise<void>;
+  /** 여러 문서를 한 번에(전부 성공 또는 전부 실패) 고친다. 없는 문서가 있으면 아무것도 바꾸지 않는다. */
+  updateMany?(collectionName: string, items: FirestoreBatchUpdate[]): Promise<void>;
+}
+
+export interface FirestoreBatchUpdate {
+  id: string;
+  data: Record<string, unknown>;
 }
 
 export type FilterOperator = "eq" | "neq" | "gte" | "lte" | "lt" | "gt" | "in";
@@ -457,8 +464,9 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
       );
 
       if (match) {
-        const updated = { ...match, ...row };
-        results.push(await this.store.update(this.collectionName, match.id, updated));
+        // 바뀐 칸만 쓴다. 읽은 시점의 전체 줄을 다시 쓰면 그 사이 다른 기기가 바꾼 칸이 사라진다.
+        const written = await this.store.update(this.collectionName, match.id, row);
+        results.push({ ...match, ...written });
       } else {
         results.push(await this.store.create(this.collectionName, withDefaults(this.collectionName, row)));
       }
@@ -473,7 +481,9 @@ class SupabaseCompatQuery<TData = FirestoreRecord[]>
     const updatedRows: FirestoreRecord[] = [];
 
     for (const row of matches) {
-      updatedRows.push(await this.store.update(this.collectionName, row.id, { ...row, ...patch }));
+      // 바뀐 칸(patch)만 merge로 쓴다. 응답에는 합친 줄을 돌려준다.
+      const written = await this.store.update(this.collectionName, row.id, patch);
+      updatedRows.push({ ...row, ...written });
     }
 
     return updatedRows;
@@ -557,6 +567,24 @@ export function createSupabaseCompatClient(store: FirestoreCompatStore) {
     from(collectionName: string) {
       return new SupabaseCompatQuery(store, collectionName);
     },
+    /**
+     * 순서 바꾸기처럼 여러 줄을 함께 고칠 때 쓴다. 중간에 실패해도 일부만 바뀌는 일이 없다.
+     */
+    async updateMany(
+      collectionName: string,
+      items: FirestoreBatchUpdate[],
+    ): Promise<{ error: SupabaseCompatError | null }> {
+      try {
+        if (store.updateMany) {
+          await store.updateMany(collectionName, items);
+        } else {
+          for (const item of items) await store.update(collectionName, item.id, item.data);
+        }
+        return { error: null };
+      } catch (error) {
+        return { error: toError(error) };
+      }
+    },
     async rpc(functionName: string, params: Record<string, unknown>) {
       if (functionName === "promote_backlog_item_to_todo") {
         return promoteBacklogItemToTodo(store, params);
@@ -609,10 +637,7 @@ async function promoteBacklogItemToTodo(
     }),
   );
 
-  await store.update("ops_backlog_items", backlog.id, {
-    ...backlog,
-    status: "promoted",
-  });
+  await store.update("ops_backlog_items", backlog.id, { status: "promoted" });
 
   return {
     data: [
@@ -685,7 +710,9 @@ export function createMemoryFirestoreStore(
     async update(collectionName: string, id: string, data: Record<string, unknown>) {
       const rows = collection(collectionName);
       const index = rows.findIndex((row) => row.id === id);
+      // 실제 Firestore의 set(..., { merge: true })처럼 기존 칸은 두고 넘긴 칸만 덮는다.
       const row = {
+        ...(index >= 0 ? rows[index] : {}),
         ...data,
         id,
       } as FirestoreRecord;
@@ -697,6 +724,15 @@ export function createMemoryFirestoreStore(
       const rows = collection(collectionName);
       const index = rows.findIndex((row) => row.id === id);
       if (index >= 0) rows.splice(index, 1);
+    },
+    async updateMany(collectionName: string, items: FirestoreBatchUpdate[]) {
+      const rows = collection(collectionName);
+      const missing = items.find((item) => !rows.some((row) => row.id === item.id));
+      if (missing) throw new Error(`No document to update: ${collectionName}/${missing.id}`);
+      for (const item of items) {
+        const index = rows.findIndex((row) => row.id === item.id);
+        rows[index] = { ...rows[index], ...item.data, id: item.id };
+      }
     },
   };
 }

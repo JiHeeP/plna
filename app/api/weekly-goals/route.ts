@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/firebase/server";
 import { NextResponse, NextRequest } from "next/server";
+import { goalLinkDefaults, parseGoalLinks, parseGoalUpdate, verifyGoalLinks } from "@/lib/goal-links";
 import { getISOWeekString } from "@/lib/utils";
 
 function getCurrentWeek() {
@@ -37,6 +38,14 @@ export async function POST(req: NextRequest) {
     }
 
     const targetWeek = week || getCurrentWeek();
+    const links = parseGoalLinks(body);
+    if (!links.ok) {
+      return NextResponse.json({ error: links.error }, { status: 400 });
+    }
+    const linkError = await verifyGoalLinks(supabase, links.value);
+    if (linkError) {
+      return NextResponse.json({ error: linkError }, { status: 400 });
+    }
 
     const { count } = await supabase
       .from("weekly_goals")
@@ -49,6 +58,7 @@ export async function POST(req: NextRequest) {
         week: targetWeek,
         text: text.trim(),
         pillar,
+        ...goalLinkDefaults(links.value),
         sort_order: count ?? 0,
       })
       .select()
@@ -65,11 +75,14 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const supabase = await createClient();
-    const body = await req.json();
-    const { id, ...updates } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "id는 필수입니다" }, { status: 400 });
+    const parsed = parseGoalUpdate(await req.json().catch(() => null), { allowLinks: true });
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const { id, updates } = parsed.value;
+    const linkError = await verifyGoalLinks(supabase, updates);
+    if (linkError) {
+      return NextResponse.json({ error: linkError }, { status: 400 });
     }
 
     const { error } = await supabase

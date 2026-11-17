@@ -118,6 +118,10 @@ export interface WeeklyGoal {
   week: string; // 'YYYY-Www' (예: '2026-W10')
   text: string;
   pillar: "career" | "identity" | "assets";
+  /** 이 주간 목표가 향하는 월 목표(monthly_goals) id. 연결 도입 전 목표는 없음/null. */
+  monthly_goal_id?: string | null;
+  /** 이 주간 목표가 향하는 분기 목표(quarterly_goals) id. 연결 도입 전 목표는 없음/null. */
+  quarterly_goal_id?: string | null;
   completed: boolean;
   sort_order: number;
   created_at: string;
