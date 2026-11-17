@@ -249,7 +249,7 @@ function PeriodGoalBoard({ config }: { config: PeriodConfig }) {
             <div className="flex items-center gap-2">
               <button onClick={() => toggleCompleted(goal)} className="flex-shrink-0">
                 {goal.completed ? (
-                  <CheckCircle2 className="h-4.5 w-4.5 text-green-600" />
+                  <CheckCircle2 className="h-4.5 w-4.5 text-identity" />
                 ) : (
                   <Circle className="h-4.5 w-4.5 text-gray-400" />
                 )}
