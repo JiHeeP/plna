@@ -8,6 +8,7 @@ import {
 } from "@/lib/firebase/daily-record-writes";
 import { recordDailyWriteAudit } from "@/lib/firebase/daily-write-audit";
 import { TODO_CATEGORIES, isTodoCategory, normalizeTodoCategory } from "@/lib/todo-category";
+import { TODO_PILLARS, isTodoPillar, normalizeTodoPillar } from "@/lib/todo-pillar";
 import { dateStringInTimeZone, resolveWidgetTimeZone } from "@/lib/widget";
 
 export async function GET(request: NextRequest) {
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
   const rows = (data ?? []).map((row) => ({
     ...row,
     category: normalizeTodoCategory(row.category),
+    pillar: normalizeTodoPillar(row.pillar),
   }));
 
   return NextResponse.json(rows);
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const text = String(body.text ?? "").trim();
   const category = normalizeTodoCategory(body.category);
+  const pillar = normalizeTodoPillar(body.pillar);
   const sortOrder = Number(body.sort_order);
   const targetDate = typeof body.date === "string" ? body.date : new Date().toISOString().split("T")[0];
   const id = typeof body.id === "string" && body.id.trim() && !body.id.includes("/")
@@ -86,6 +89,7 @@ export async function POST(request: NextRequest) {
       date: targetDate,
       text,
       category,
+      pillar,
       sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     });
 
@@ -98,6 +102,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         has_text: true,
         category,
+        pillar,
         sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
       },
     });
@@ -154,6 +159,16 @@ export async function PATCH(request: NextRequest) {
     patch.category = body.category;
   }
 
+  if ("pillar" in body) {
+    if (body.pillar !== null && !isTodoPillar(body.pillar)) {
+      return NextResponse.json(
+        { error: `pillar must be one of: ${TODO_PILLARS.join(", ")} or null` },
+        { status: 400 },
+      );
+    }
+    patch.pillar = body.pillar;
+  }
+
   if ("sort_order" in body) {
     const sortOrder = Number(body.sort_order);
     if (Number.isFinite(sortOrder)) {
@@ -182,6 +197,7 @@ export async function PATCH(request: NextRequest) {
         updates_completed: "completed" in body,
         updates_text: "text" in body,
         updates_category: "category" in body,
+        updates_pillar: "pillar" in body,
         updates_sort_order: "sort_order" in body,
       },
     });

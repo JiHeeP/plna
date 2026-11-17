@@ -63,6 +63,7 @@ describe("local daily backup sync payload", () => {
           text: "Plan the day",
           completed: true,
           category: "personal",
+          pillar: null,
           sort_order: 2,
           created_at: "2026-07-01T00:00:00.000Z",
         },
@@ -102,6 +103,7 @@ describe("local daily backup sync payload", () => {
           text: "Keep this",
           completed: false,
           category: "personal",
+          pillar: null,
           sort_order: 0,
           created_at: undefined,
         },
@@ -149,8 +151,8 @@ describe("local daily backup sync payload", () => {
       todoCompleted: 1,
       todoTotal: 2,
       todos: [
-        { id: "todo_1", text: "First", completed: true },
-        { id: "todo_2", text: "Second", completed: false },
+        { id: "todo_1", text: "First", completed: true, pillar: null },
+        { id: "todo_2", text: "Second", completed: false, pillar: null },
       ],
       accomplishments: "shipped dashboard fallback",
       went_well: "caught quota failure",
@@ -220,7 +222,7 @@ describe("local daily backup sync payload", () => {
           },
         ],
         todos: [
-          { id: "todo_2", date: "2026-07-01", text: "Second", completed: false, category: "school", sort_order: 2 },
+          { id: "todo_2", date: "2026-07-01", text: "Second", completed: false, category: "school", pillar: "assets", sort_order: 2 },
           { id: "todo_1", date: "2026-07-01", text: "First", completed: true, sort_order: 1 },
         ],
         habitChecks: [
@@ -242,8 +244,8 @@ describe("local daily backup sync payload", () => {
       [
         "todos_2026-07-01",
         JSON.stringify([
-          { id: "todo_1", text: "First", completed: true, category: "personal", sort_order: 1 },
-          { id: "todo_2", text: "Second", completed: false, category: "school", sort_order: 2 },
+          { id: "todo_1", text: "First", completed: true, category: "personal", pillar: null, sort_order: 1 },
+          { id: "todo_2", text: "Second", completed: false, category: "school", pillar: "assets", sort_order: 2 },
         ]),
       ],
       [

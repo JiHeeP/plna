@@ -78,6 +78,8 @@ export interface DailyTodo {
   text: string;
   completed: boolean;
   category: TodoCategory;
+  /** 삶의 3필러 중 하나. 필러 도입 전 할 일이나 고르지 않은 할 일은 null/없음. */
+  pillar?: Pillar | null;
   sort_order: number;
   created_at: string;
 }

@@ -73,10 +73,12 @@ describe("claude api validation", () => {
   it("creates todos with defaults and rejects bad input", () => {
     assert.deepEqual(parseTodoCreate({ date: "2026-10-29", text: "  루틴 수업  " }), {
       ok: true,
-      value: { date: "2026-10-29", text: "루틴 수업", category: "personal", sort_order: 0 },
+      value: { date: "2026-10-29", text: "루틴 수업", category: "personal", pillar: null, sort_order: 0 },
     });
     assert.equal(parseTodoCreate({ date: "2026-10-29", text: "x", category: "school" }).ok, true);
     assert.equal(parseTodoCreate({ date: "2026-10-29", text: "x", category: "nope" }).ok, false);
+    assert.equal(parseTodoCreate({ date: "2026-10-29", text: "x", pillar: "assets" }).ok, true);
+    assert.equal(parseTodoCreate({ date: "2026-10-29", text: "x", pillar: "health" }).ok, false);
     assert.equal(parseTodoCreate({ date: "2026-10-29", text: "   " }).ok, false);
     assert.equal(parseTodoCreate({ date: "10/29", text: "x" }).ok, false);
     assert.equal(parseTodoCreate({ date: "2026-10-29", text: "a".repeat(MAX_TEXT_LENGTH + 1) }).ok, false);

@@ -116,6 +116,7 @@ export interface TodoCreate {
   date: string;
   text: string;
   category: string;
+  pillar: ClaudePillar | null;
   sort_order: number;
 }
 
@@ -127,6 +128,8 @@ export function parseTodoCreate(body: unknown): Parsed<TodoCreate> {
   if (!text.ok) return text;
   const category = record.category ?? "personal";
   if (!isTodoCategory(category)) return { ok: false, error: "category가 올바르지 않습니다." };
+  const pillar = record.pillar ?? null;
+  if (pillar !== null && !isPillar(pillar)) return { ok: false, error: "pillar는 career/identity/assets 중 하나이거나 null이어야 합니다." };
   const sortOrder = Number(record.sort_order ?? 0);
   return {
     ok: true,
@@ -134,6 +137,7 @@ export function parseTodoCreate(body: unknown): Parsed<TodoCreate> {
       date: record.date,
       text: text.value,
       category,
+      pillar,
       sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     },
   };
@@ -145,6 +149,7 @@ export interface TodoPatch {
   text?: string;
   completed?: boolean;
   category?: string;
+  pillar?: ClaudePillar | null;
   sort_order?: number;
 }
 
@@ -171,6 +176,12 @@ export function parseTodoPatch(body: unknown): Parsed<TodoPatch> {
   if (record.category !== undefined) {
     if (!isTodoCategory(record.category)) return { ok: false, error: "category가 올바르지 않습니다." };
     patch.category = record.category;
+  }
+  if (record.pillar !== undefined) {
+    if (record.pillar !== null && !isPillar(record.pillar)) {
+      return { ok: false, error: "pillar는 career/identity/assets 중 하나이거나 null이어야 합니다." };
+    }
+    patch.pillar = record.pillar;
   }
   if (record.sort_order !== undefined) {
     const sortOrder = Number(record.sort_order);
