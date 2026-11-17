@@ -63,22 +63,46 @@ export function decryptBackup(buffer, passphrase) {
   return Buffer.concat([decipher.update(buffer.subarray(offset)), decipher.final()]).toString("utf8");
 }
 
-/** db: firebase-admin Firestore (listCollections 지원). 하위 컬렉션까지 재귀로 담는다. */
-export async function dumpFirestore(db) {
-  const collections = {};
-  async function dumpCollection(ref, path) {
-    const snapshot = await ref.get();
-    const docs = [];
-    for (const doc of snapshot.docs) {
-      const entry = { id: doc.id, data: toJsonValue(doc.data()) };
-      const children = typeof doc.ref.listCollections === "function" ? await doc.ref.listCollections() : [];
-      for (const child of children) await dumpCollection(child, `${path}/${doc.id}/${child.id}`);
-      docs.push(entry);
+/**
+ * db: firebase-admin Firestore (listCollections 지원). 최상위 컬렉션만 담는다.
+ * PLNA는 하위 컬렉션을 쓰지 않는다. 예전처럼 문서마다 하위 컬렉션을 물어보면
+ * 문서 수만큼 요청이 생겨 GitHub Actions 15분 제한에 걸렸다(2026-11-17).
+ */
+export async function dumpFirestore(db, log = () => {}) {
+  const refs = await db.listCollections();
+  const entries = await Promise.all(
+    refs.map(async (ref) => {
+      const started = Date.now();
+      const snapshot = await ref.get();
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, data: toJsonValue(doc.data()) }));
+      log(`${ref.id}: ${docs.length} (${Date.now() - started}ms)`);
+      return [ref.id, docs];
+    }),
+  );
+  return Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : 1)));
+}
+
+/** 백업한 내용으로 date 칸 형식을 센다(두 번 읽지 않게). */
+export function summarizeDateFormats(collections) {
+  const report = {};
+  for (const [name, docs] of Object.entries(collections)) {
+    const counts = {};
+    let hasDate = false;
+    for (const { data } of docs) {
+      if (!data || !("date" in data)) continue;
+      hasDate = true;
+      const value = data.date;
+      const kind =
+        value && typeof value === "object" && "__timestamp" in value
+          ? "timestamp"
+          : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+            ? "string"
+            : "other";
+      counts[kind] = (counts[kind] ?? 0) + 1;
     }
-    collections[path] = docs;
+    if (hasDate) report[name] = counts;
   }
-  for (const ref of await db.listCollections()) await dumpCollection(ref, ref.id);
-  return collections;
+  return report;
 }
 
 function describeStart(text) {
@@ -162,12 +186,18 @@ async function main() {
     throw new Error("PLNA_BACKUP_PASSPHRASE가 없습니다. 공개 저장소에서는 암호화 없이 백업하지 않습니다.");
   }
 
-  const collections = await dumpFirestore(await getDb());
+  const collections = await dumpFirestore(await getDb(), (line) => console.log(line));
   const payload = JSON.stringify({ format: MAGIC, created_at: new Date().toISOString(), collections });
   mkdirSync(dirname(options.out), { recursive: true });
   writeFileSync(options.out, passphrase ? encryptBackup(payload, passphrase) : payload);
 
-  for (const [name, docs] of Object.entries(collections)) console.log(`${name}: ${docs.length}`);
+  const dateReport = summarizeDateFormats(collections);
+  let timestamps = 0;
+  for (const [name, counts] of Object.entries(dateReport)) {
+    timestamps += counts.timestamp ?? 0;
+    console.log(`date 형식 ${name}: ${JSON.stringify(counts)}`);
+  }
+  console.log(timestamps === 0 ? "날짜형(Timestamp) date 없음" : `날짜형 date ${timestamps}건 남아 있음`);
   console.log(`백업 완료${passphrase ? "(암호화)" : "(암호화 안 함)"}: ${options.out}`);
 }
 
