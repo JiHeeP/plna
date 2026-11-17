@@ -93,22 +93,13 @@ function firestoreOperator(operator: FilterOperator) {
   }
 }
 
-function dateStringToDate(value: unknown) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T00:00:00.000Z`)
-    : null;
-}
-
+/**
+ * 예전에는 date가 문자열/날짜형(Timestamp) 두 형식으로 섞여 있을까 봐 날짜 조회를 두 번 했다.
+ * 2026-11-17 전체 백업 점검에서 날짜형 date가 0건으로 확인되어 문자열 한 번만 조회한다.
+ * 앱은 date를 항상 'YYYY-MM-DD' 문자열로 쓴다.
+ */
 function queryFilterVariants(options: FirestoreCompatQueryOptions) {
-  const filters = options.filters ?? [];
-  const dateConvertedFilters = filters.map((filter) => {
-    if (filter.field !== "date") return filter;
-    const date = dateStringToDate(filter.value);
-    return date ? { ...filter, value: date } : filter;
-  });
-  const hasDateVariant = dateConvertedFilters.some((filter, index) => filter.value !== filters[index]?.value);
-
-  return hasDateVariant ? [filters, dateConvertedFilters] : [filters];
+  return [options.filters ?? []];
 }
 
 function rowFromSnapshotDoc(snapshotDoc: {

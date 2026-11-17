@@ -37,10 +37,6 @@ jobs:
         run: |
           stamp=$(TZ=Asia/Seoul date +%F)
           node scripts/backup-firestore.mjs --require-encryption --out="backup/plna-${stamp}.json.enc"
-      - name: Check date formats (counts only)
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-        run: node scripts/check-date-formats.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: plna-firestore-backup
