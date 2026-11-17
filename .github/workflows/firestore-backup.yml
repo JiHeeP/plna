@@ -1,0 +1,45 @@
+# PLNA Firestore 주간 백업 (읽기 전용)
+# - 매주 일요일 03:00 KST(토 18:00 UTC) + Actions 탭에서 수동 실행 가능
+# - 저장소가 공개라 백업은 PLNA_BACKUP_PASSPHRASE로 암호화된 파일만 올린다(평문 업로드 없음)
+# - 결과물: Actions 실행 화면의 Artifacts에서 90일 보관
+# 필요한 저장소 비밀값(Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT_JSON, PLNA_BACKUP_PASSPHRASE
+name: Firestore backup
+
+on:
+  schedule:
+    - cron: "0 18 * * 6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'JiHeeP/plna'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Back up Firestore (encrypted)
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          PLNA_BACKUP_PASSPHRASE: ${{ secrets.PLNA_BACKUP_PASSPHRASE }}
+        run: |
+          stamp=$(TZ=Asia/Seoul date +%F)
+          node scripts/backup-firestore.mjs --require-encryption --out="backup/plna-${stamp}.json.enc"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plna-firestore-backup
+          path: backup/*.json.enc
+          if-no-files-found: error
+          retention-days: 90

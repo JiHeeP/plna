@@ -1,0 +1,43 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { decryptBackup, dumpFirestore, encryptBackup, toJsonValue } from "../scripts/backup-firestore.mjs";
+
+describe("firestore backup", () => {
+  it("round-trips encryption and rejects a wrong passphrase", () => {
+    const text = JSON.stringify({ hello: "일기" });
+    const encrypted = encryptBackup(text, "pass-1");
+    assert.equal(encrypted.includes(Buffer.from("일기")), false);
+    assert.equal(decryptBackup(encrypted, "pass-1"), text);
+    assert.throws(() => decryptBackup(encrypted, "wrong"));
+    assert.throws(() => decryptBackup(Buffer.from("plain json"), "pass-1"));
+  });
+
+  it("keeps timestamps distinguishable", () => {
+    const ts = { toDate: () => new Date("2026-11-17T00:00:00.000Z") };
+    assert.deepEqual(toJsonValue({ date: ts, list: [1, null], nested: { a: "b" } }), {
+      date: { __timestamp: "2026-11-17T00:00:00.000Z" },
+      list: [1, null],
+      nested: { a: "b" },
+    });
+  });
+
+  it("dumps every collection and document", async () => {
+    const collection = (id, docs) => ({
+      id,
+      get: async () => ({
+        docs: docs.map((doc) => ({ id: doc.id, data: () => doc.data, ref: { listCollections: async () => [] } })),
+      }),
+    });
+    const db = {
+      listCollections: async () => [
+        collection("daily_todos", [{ id: "t1", data: { text: "a" } }]),
+        collection("weekly_goals", [{ id: "w1", data: { text: "b" } }, { id: "w2", data: { text: "c" } }]),
+      ],
+    };
+    const dump = await dumpFirestore(db);
+    assert.deepEqual(Object.keys(dump), ["daily_todos", "weekly_goals"]);
+    assert.equal(dump.weekly_goals.length, 2);
+    assert.deepEqual(dump.daily_todos[0], { id: "t1", data: { text: "a" } });
+  });
+});

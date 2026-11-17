@@ -47,3 +47,21 @@ Firebase Auth 기반 사용자별 규칙은 추후 다중 사용자 권한이 �
 ## 참고 문서
 
 - Firebase: Firestore batched writes - https://firebase.google.com/docs/firestore/manage-data/transactions
+
+## 4. 주간 자동 백업 (2026-11-17)
+
+`.github/workflows/firestore-backup.yml`이 매주 일요일 03:00(KST)에 Firestore 전체를 읽어 **암호화된 파일**로 남깁니다. Firestore에는 아무것도 쓰지 않습니다.
+
+1. GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: Vercel에 넣은 것과 같은 서비스 계정 값
+   - `PLNA_BACKUP_PASSPHRASE`: 백업을 잠글 비밀번호(길게, 따로 안전하게 보관. 잃어버리면 백업을 못 엶)
+2. Actions 탭 → Firestore backup → Run workflow 로 한 번 수동 실행해 확인
+3. 백업 파일은 실행 화면 아래 Artifacts에 90일간 보관됩니다.
+
+복호화(내 컴퓨터에서):
+
+```bash
+PLNA_BACKUP_PASSPHRASE='비밀번호' node scripts/backup-firestore.mjs --decrypt=plna-2026-11-17.json.enc --out=plna-2026-11-17.json
+```
+
+저장소가 공개라서 암호화 없이는 백업하지 않습니다(`--require-encryption`). 로그에는 컬렉션 이름과 문서 수만 찍힙니다.
