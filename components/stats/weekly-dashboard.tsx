@@ -11,7 +11,8 @@ import {
   shiftWeek,
   formatWeekLabel,
 } from "@/lib/utils";
-import { PILLAR_LABELS } from "@/lib/constants";
+import { PILLAR_COLORS, PILLAR_LABELS, PILLAR_TEXT_COLORS } from "@/lib/constants";
+import { summarizeWeeklyPillars } from "@/lib/todo-pillar";
 import {
   buildLocalDailyBackupPayloadFromEntries,
   buildLocalDailyDashboardData,
@@ -26,7 +27,7 @@ import {
   Circle,
   Save,
 } from "lucide-react";
-import type { WeeklyGoal } from "@/lib/types";
+import type { Pillar, WeeklyGoal } from "@/lib/types";
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 const REMOTE_ERROR_STATE_KEY = "plna_weekly_dashboard_remote_error_state";
@@ -36,6 +37,7 @@ interface DailyTodoSummary {
   id: string;
   text: string;
   completed: boolean;
+  pillar?: Pillar | null;
 }
 
 interface DailyData {
@@ -78,6 +80,54 @@ function habitRateColor(rate: number) {
   if (rate >= 70) return "text-green-600";
   if (rate >= 40) return "text-amber-600";
   return "text-red-500";
+}
+
+function PillarBalanceCard({ dailyData, weeklyGoals }: { dailyData: DailyData[]; weeklyGoals: WeeklyGoal[] }) {
+  const { pillars, untagged } = summarizeWeeklyPillars(
+    dailyData.flatMap((day) => day.todos),
+    weeklyGoals,
+  );
+  const maxCompleted = Math.max(1, ...pillars.map((row) => row.todoCompleted));
+  const hasAnyTagged = pillars.some((row) => row.todoTotal > 0);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm lg:text-base">이번 주 필러 균형</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        <div className="grid grid-cols-3 gap-2">
+          {pillars.map((row) => (
+            <div key={row.pillar} className="rounded-lg border p-2 lg:p-3 space-y-1.5">
+              <div className={`text-xs lg:text-sm font-semibold ${PILLAR_TEXT_COLORS[row.pillar]}`}>
+                {PILLAR_LABELS[row.pillar]}
+              </div>
+              <div className="text-lg lg:text-2xl font-bold leading-none">
+                {row.todoCompleted}
+                <span className="text-xs lg:text-sm font-normal text-muted-foreground"> / {row.todoTotal} 완료</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${PILLAR_COLORS[row.pillar]}`}
+                  style={{ width: `${Math.round((row.todoCompleted / maxCompleted) * 100)}%` }}
+                />
+              </div>
+              <div className="text-[10px] lg:text-xs text-muted-foreground">
+                {row.goalTotal > 0
+                  ? `주간 목표 ${row.goalCompleted}/${row.goalTotal} 달성`
+                  : "주간 목표 없음"}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] lg:text-xs text-muted-foreground">
+          {hasAnyTagged
+            ? `필러를 고르지 않은 할 일: ${untagged.todoCompleted}/${untagged.todoTotal} 완료`
+            : "할 일 옆 '필러' 칩을 눌러 일·나다운 나·자산을 고르면 여기에 모입니다."}
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function readLocalDashboardData(week: string | null): LocalDailyDashboardData | null {
@@ -546,6 +596,9 @@ export function WeeklyDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 이번 주 필러별 완료 수 + 주간 목표 달성 */}
+      <PillarBalanceCard dailyData={dailyData} weeklyGoals={weeklyGoals} />
 
       {/* 하단: 주간 초점 목표 + 주간 회고 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

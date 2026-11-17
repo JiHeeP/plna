@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
           text: todo.text,
           completed: todo.completed,
           category: todo.category,
+          pillar: todo.pillar,
           sort_order: todo.sort_order,
           created_at: todo.created_at || timestamp,
         };

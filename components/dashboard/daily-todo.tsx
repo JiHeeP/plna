@@ -19,7 +19,13 @@ import {
   normalizeTodoCategory,
   type TodoCategory,
 } from "@/lib/todo-category";
-import type { DailyTodo } from "@/lib/types";
+import { PILLAR_COLORS } from "@/lib/constants";
+import {
+  TODO_PILLARS,
+  TODO_PILLAR_SHORT_LABELS,
+  normalizeTodoPillar,
+} from "@/lib/todo-pillar";
+import type { DailyTodo, Pillar } from "@/lib/types";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -28,13 +34,41 @@ function toDateString(d: Date) {
 }
 
 function normalizeTodos(items: DailyTodo[]) {
-  return items.map((todo) => ({ ...todo, category: normalizeTodoCategory(todo.category) }));
+  return items.map((todo) => ({
+    ...todo,
+    category: normalizeTodoCategory(todo.category),
+    pillar: normalizeTodoPillar(todo.pillar),
+  }));
+}
+
+/** 필러 없음 → 일 → 나다운 나 → 자산 → 필러 없음 순서로 돌린다. */
+function nextPillar(current: Pillar | null | undefined): Pillar | null {
+  if (!current) return TODO_PILLARS[0];
+  const index = TODO_PILLARS.indexOf(current);
+  return index >= 0 && index < TODO_PILLARS.length - 1 ? TODO_PILLARS[index + 1] : null;
+}
+
+function PillarChip({ pillar, onClick, title }: { pillar: Pillar | null | undefined; onClick?: () => void; title?: string }) {
+  const className = pillar
+    ? `${PILLAR_COLORS[pillar]} text-white`
+    : "border border-dashed border-muted-foreground/40 text-muted-foreground";
+  const label = pillar ? TODO_PILLAR_SHORT_LABELS[pillar] : "필러";
+  const base = `shrink-0 rounded-full px-2 py-0.5 text-[10px] lg:text-xs font-medium ${className}`;
+  if (!onClick) return <span className={base}>{label}</span>;
+  return (
+    <button type="button" onClick={onClick} title={title} className={`${base} hover:opacity-80`}>
+      {label}
+    </button>
+  );
 }
 
 export function DailyTodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [newTexts, setNewTexts] = useState<Record<TodoCategory, string>>(() =>
     emptyByCategory(() => ""),
+  );
+  const [newPillars, setNewPillars] = useState<Record<TodoCategory, Pillar | null>>(() =>
+    emptyByCategory<Pillar | null>(() => null),
   );
   const [loading, setLoading] = useState(true);
   const [useLocal, setUseLocal] = useState(false);
@@ -161,12 +195,14 @@ export function DailyTodoList({ date }: { date?: string }) {
     if (!text) return;
 
     const sortOrder = grouped[category].length;
+    const pillar = newPillars[category];
     const localTodo: DailyTodo = {
       id: `local_${Date.now()}`,
       date: targetDate,
       text,
       completed: false,
       category,
+      pillar,
       sort_order: sortOrder,
       created_at: new Date().toISOString(),
     };
@@ -190,6 +226,7 @@ export function DailyTodoList({ date }: { date?: string }) {
           date: targetDate,
           text,
           category,
+          pillar,
           sort_order: sortOrder,
         }),
       });
@@ -222,6 +259,30 @@ export function DailyTodoList({ date }: { date?: string }) {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, date: targetDate, completed: !todo.completed }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      saveLocal(updated);
+    } catch {
+      switchToLocal(updated);
+    }
+  };
+
+  const cyclePillar = async (todo: DailyTodo) => {
+    const pillar = nextPillar(todo.pillar);
+    const updated = todos.map((t) => (t.id === todo.id ? { ...t, pillar } : t));
+    setTodos(updated);
+    saveLocal(updated, false);
+
+    if (useLocal) {
+      saveLocal(updated);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/todos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: todo.id, date: targetDate, pillar }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       saveLocal(updated);
@@ -372,6 +433,16 @@ export function DailyTodoList({ date }: { date?: string }) {
               </span>
             )}
 
+            {editMode ? (
+              <PillarChip
+                pillar={todo.pillar}
+                onClick={() => cyclePillar(todo)}
+                title="눌러서 필러 바꾸기"
+              />
+            ) : (
+              todo.pillar && <PillarChip pillar={todo.pillar} />
+            )}
+
             {editMode && (
               <button
                 type="button"
@@ -399,6 +470,13 @@ export function DailyTodoList({ date }: { date?: string }) {
             onChange={(e) => setNewTexts((prev) => ({ ...prev, [category]: e.target.value }))}
             placeholder={`${TODO_CATEGORY_LABELS[category]} 할 일 추가...`}
             className="h-9 text-sm lg:text-base"
+          />
+          <PillarChip
+            pillar={newPillars[category]}
+            onClick={() =>
+              setNewPillars((prev) => ({ ...prev, [category]: nextPillar(prev[category]) }))
+            }
+            title="눌러서 필러 고르기 (없음 → 일 → 나다운 나 → 자산)"
           />
           <Button type="submit" size="sm" variant="ghost" className="h-9 px-2">
             <Plus className="h-4 w-4" />

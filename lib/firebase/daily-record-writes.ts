@@ -4,6 +4,7 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 import { getFirebaseAdminApp } from "./server";
 import { TODO_CATEGORIES, isTodoCategory, normalizeTodoCategory, type TodoCategory } from "../todo-category";
+import { TODO_PILLARS, isTodoPillar, normalizeTodoPillar } from "../todo-pillar";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -28,6 +29,7 @@ interface DailyTodoInput {
   text: string;
   completed?: boolean;
   category?: TodoCategory | string | null;
+  pillar?: string | null;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;
@@ -39,6 +41,8 @@ interface DailyTodoPatchInput {
   completed?: boolean;
   text?: string;
   category?: TodoCategory | string;
+  /** null 이면 필러를 지운다. */
+  pillar?: string | null;
   sort_order?: number;
   updated_at?: string;
 }
@@ -148,6 +152,7 @@ export async function writeDailyTodo(input: DailyTodoInput, db?: DailyWriteDb) {
     text: input.text,
     completed: input.completed === true,
     category: normalizeTodoCategory(input.category),
+    pillar: normalizeTodoPillar(input.pillar),
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     created_at: input.created_at || timestamp,
     updated_at: input.updated_at ?? timestamp,
@@ -180,6 +185,7 @@ export async function createDailyTodoIfMissing(input: DailyTodoInput, db?: Daily
     text: input.text,
     completed: input.completed === true,
     category: normalizeTodoCategory(input.category),
+    pillar: normalizeTodoPillar(input.pillar),
     sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
     created_at: input.created_at || timestamp,
     updated_at: input.updated_at ?? timestamp,
@@ -225,6 +231,13 @@ export async function patchDailyTodo(input: DailyTodoPatchInput, db?: DailyWrite
       throw new Error(`category must be one of: ${TODO_CATEGORIES.join(", ")}.`);
     }
     patch.category = input.category;
+  }
+
+  if (input.pillar !== undefined) {
+    if (input.pillar !== null && !isTodoPillar(input.pillar)) {
+      throw new Error(`pillar must be one of: ${TODO_PILLARS.join(", ")} or null.`);
+    }
+    patch.pillar = input.pillar;
   }
 
   if (input.sort_order !== undefined) {

@@ -1,4 +1,6 @@
 import { normalizeTodoCategory, type TodoCategory } from "./todo-category";
+import { normalizeTodoPillar } from "./todo-pillar";
+import type { Pillar } from "./types";
 
 export const LOCAL_DAILY_BACKUP_CHANGED_EVENT = "plna:local-daily-backup-changed";
 export const LOCAL_DAILY_BACKUP_SYNC_EVENT = "plna:local-daily-backup-synced";
@@ -16,6 +18,7 @@ export interface LocalBackupTodo {
   text: string;
   completed: boolean;
   category: TodoCategory;
+  pillar: Pillar | null;
   sort_order: number;
   created_at?: string;
 }
@@ -42,6 +45,7 @@ export interface LocalDailyDashboardDay {
     id: string;
     text: string;
     completed: boolean;
+    pillar: Pillar | null;
   }>;
   accomplishments: string;
   went_well: string;
@@ -126,6 +130,7 @@ export function buildLocalDailyBackupPayloadFromEntries(entries: Iterable<[strin
           text,
           completed: toBoolean(entry.completed),
           category: normalizeTodoCategory(entry.category),
+          pillar: normalizeTodoPillar(entry.pillar),
           sort_order: toSortOrder(entry.sort_order, index),
           created_at: toText(entry.created_at) || undefined,
         });
@@ -185,6 +190,7 @@ export function normalizeLocalDailyBackupPayload(input: unknown): LocalDailyBack
       text,
       completed: toBoolean(entry.completed),
       category: normalizeTodoCategory(entry.category),
+          pillar: normalizeTodoPillar(entry.pillar),
       sort_order: toSortOrder(entry.sort_order, index),
       created_at: toText(entry.created_at) || undefined,
     }];
@@ -269,6 +275,7 @@ export function localDailyBackupPayloadToStorageEntries(input: LocalDailyBackupP
               text: todo.text,
               completed: todo.completed,
               category: todo.category,
+              pillar: todo.pillar,
               sort_order: todo.sort_order,
               created_at: todo.created_at,
             })),
@@ -372,6 +379,7 @@ export function buildLocalDailyDashboardData(
           id: todo.id ?? `local_todo_${date}_${index}`,
           text: todo.text,
           completed: todo.completed,
+          pillar: todo.pillar,
         })),
         accomplishments: journal?.accomplishments ?? "",
         went_well: journal?.went_well ?? "",

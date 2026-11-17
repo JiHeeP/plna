@@ -6,6 +6,8 @@ import {
   resolveLatestDashboardWeek,
   toDateString,
 } from "@/lib/utils";
+import { normalizeTodoPillar } from "@/lib/todo-pillar";
+import type { Pillar } from "@/lib/types";
 import { getFirestore } from "firebase-admin/firestore";
 import { NextResponse, NextRequest } from "next/server";
 
@@ -18,7 +20,7 @@ type DashboardDay = {
   habitTotal: number;
   todoCompleted: number;
   todoTotal: number;
-  todos: Array<{ id: string; text: string; completed: boolean }>;
+  todos: Array<{ id: string; text: string; completed: boolean; pillar: Pillar | null }>;
   accomplishments: string;
   went_well: string;
   to_improve: string;
@@ -452,6 +454,7 @@ export async function GET(req: NextRequest) {
           id: String(todo.id),
           text: String(todo.text ?? ""),
           completed: todo.completed === true,
+          pillar: normalizeTodoPillar(todo.pillar),
         })),
         accomplishments: String(journal?.accomplishments ?? ""),
         went_well: String(journal?.went_well ?? ""),
