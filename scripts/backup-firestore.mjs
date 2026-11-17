@@ -91,7 +91,7 @@ function parseArgs(argv) {
   return options;
 }
 
-async function getDb() {
+export async function getDb() {
   const { applicationDefault, cert, getApps, initializeApp } = await import("firebase-admin/app");
   const { getFirestore } = await import("firebase-admin/firestore");
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;

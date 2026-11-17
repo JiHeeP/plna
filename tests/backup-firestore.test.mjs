@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { auditDateFormats, classifyDate } from "../scripts/check-date-formats.mjs";
 import { decryptBackup, dumpFirestore, encryptBackup, toJsonValue } from "../scripts/backup-firestore.mjs";
 
 describe("firestore backup", () => {
@@ -39,5 +40,25 @@ describe("firestore backup", () => {
     assert.deepEqual(Object.keys(dump), ["daily_todos", "weekly_goals"]);
     assert.equal(dump.weekly_goals.length, 2);
     assert.deepEqual(dump.daily_todos[0], { id: "t1", data: { text: "a" } });
+  });
+});
+
+describe("date format audit", () => {
+  it("classifies values", () => {
+    assert.equal(classifyDate("2026-11-17"), "string");
+    assert.equal(classifyDate({ toDate: () => new Date() }), "timestamp");
+    assert.equal(classifyDate(undefined), "missing");
+    assert.equal(classifyDate("11/17"), "other_string");
+  });
+
+  it("counts per collection with a date field only", async () => {
+    const col = (id, rows) => ({ id, get: async () => ({ docs: rows.map((data) => ({ data: () => data })) }) });
+    const db = {
+      listCollections: async () => [
+        col("daily_todos", [{ date: "2026-11-17" }, { date: { toDate: () => new Date() } }]),
+        col("weekly_goals", [{ week: "2026-W47" }]),
+      ],
+    };
+    assert.deepEqual(await auditDateFormats(db), { daily_todos: { string: 1, timestamp: 1 } });
   });
 });
