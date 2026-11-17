@@ -92,18 +92,6 @@ function rowFromDoc(doc: { id: string; data: () => Record<string, unknown> }): F
   };
 }
 
-function uniqueRows(rows: FirestoreRow[]) {
-  return [...new Map(rows.map((row) => [row.id, row])).values()];
-}
-
-function dateStart(date: string) {
-  return new Date(`${date}T00:00:00.000Z`);
-}
-
-function dateEnd(date: string) {
-  return new Date(`${date}T23:59:59.999Z`);
-}
-
 function latestDateValue(rows: FirestoreRow[]) {
   return rows
     .map((row) => row.date)
@@ -255,23 +243,14 @@ async function optionalQuery<T>(
 
 async function getLatestDate(db: FirebaseFirestore.Firestore, collectionName: string) {
   return querySource(collectionName, async () => {
-    const [stringSnapshot, dateSnapshot] = await Promise.all([
-      db.collection(collectionName)
-        .where("date", ">=", "0000-00-00")
-        .orderBy("date", "desc")
-        .limit(1)
-        .get(),
-      db.collection(collectionName)
-        .where("date", ">=", new Date(0))
-        .orderBy("date", "desc")
-        .limit(1)
-        .get(),
-    ]);
+    // date는 모두 'YYYY-MM-DD' 문자열(2026-11-17 전체 점검: 날짜형 0건)이라 한 번만 조회한다.
+    const snapshot = await db.collection(collectionName)
+      .where("date", ">=", "0000-00-00")
+      .orderBy("date", "desc")
+      .limit(1)
+      .get();
 
-    return latestDateValue(uniqueRows([
-      ...stringSnapshot.docs.map(rowFromDoc),
-      ...dateSnapshot.docs.map(rowFromDoc),
-    ]));
+    return latestDateValue(snapshot.docs.map(rowFromDoc));
   });
 }
 
@@ -289,23 +268,13 @@ async function getRowsByDateRange(
   endDate: string,
 ) {
   return querySource(collectionName, async () => {
-    const [stringSnapshot, dateSnapshot] = await Promise.all([
-      db
-        .collection(collectionName)
-        .where("date", ">=", startDate)
-        .where("date", "<=", endDate)
-        .get(),
-      db
-        .collection(collectionName)
-        .where("date", ">=", dateStart(startDate))
-        .where("date", "<=", dateEnd(endDate))
-        .get(),
-    ]);
+    const snapshot = await db
+      .collection(collectionName)
+      .where("date", ">=", startDate)
+      .where("date", "<=", endDate)
+      .get();
 
-    return uniqueRows([
-      ...stringSnapshot.docs.map(rowFromDoc),
-      ...dateSnapshot.docs.map(rowFromDoc),
-    ]);
+    return snapshot.docs.map(rowFromDoc);
   });
 }
 
