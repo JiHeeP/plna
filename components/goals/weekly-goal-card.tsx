@@ -6,16 +6,57 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SortableList, SortableRow } from "@/components/ui/sortable-list";
-import { WeeklyGoal } from "@/lib/types";
+import { MonthlyGoal, WeeklyGoal } from "@/lib/types";
 import { PILLAR_LABELS, PILLAR_COLORS } from "@/lib/constants";
 import { getISOWeekString, shiftWeek, formatWeekLabel } from "@/lib/utils";
-import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Check } from "lucide-react";
+import { monthForWeek, quarterForWeek } from "@/lib/goal-links";
+import { CheckCircle2, Circle, Plus, Trash2, ChevronLeft, ChevronRight, Pencil, Check, CornerDownRight } from "lucide-react";
 
 const PILLAR_OPTIONS: { value: WeeklyGoal["pillar"]; label: string }[] = [
   { value: "career", label: "일" },
   { value: "identity", label: "나다운나" },
   { value: "assets", label: "자산" },
 ];
+
+const SHORT_PILLAR: Record<WeeklyGoal["pillar"], string> = { career: "일", identity: "나다운나", assets: "자산" };
+
+type ParentGoal = Pick<MonthlyGoal, "id" | "text" | "pillar">;
+
+/** 상위 목표 고르기. 같은 필러 목표를 위에 둔다. */
+function ParentSelect({
+  label,
+  value,
+  options,
+  pillar,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  options: ParentGoal[];
+  pillar: WeeklyGoal["pillar"];
+  onChange: (id: string | null) => void;
+}) {
+  const sorted = [...options].sort((a, b) => Number(b.pillar === pillar) - Number(a.pillar === pillar));
+  const missing = value && !options.some((o) => o.id === value);
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="w-14 flex-shrink-0">{label}</span>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="h-7 flex-1 min-w-0 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+      >
+        <option value="">연결 안 함</option>
+        {missing && <option value={value}>다른 기간 목표</option>}
+        {sorted.map((o) => (
+          <option key={o.id} value={o.id}>
+            [{SHORT_PILLAR[o.pillar]}] {o.text}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export function WeeklyGoalCard() {
   const [week, setWeek] = useState(() => getISOWeekString(new Date()));
@@ -27,6 +68,42 @@ export function WeeklyGoalCard() {
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [newMonthlyId, setNewMonthlyId] = useState<string | null>(null);
+  const [newQuarterlyId, setNewQuarterlyId] = useState<string | null>(null);
+  const [monthlyGoals, setMonthlyGoals] = useState<ParentGoal[]>([]);
+  const [quarterlyGoals, setQuarterlyGoals] = useState<ParentGoal[]>([]);
+
+  const month = monthForWeek(week);
+  const quarter = quarterForWeek(week);
+
+  // 이 주가 속한 달·분기의 목표만 불러와 상위 목표 후보로 쓴다.
+  useEffect(() => {
+    let cancelled = false;
+    const fetchGoals = async (url: string): Promise<ParentGoal[]> => {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.goals ?? [];
+      } catch {
+        return [];
+      }
+    };
+    Promise.all([
+      month ? fetchGoals(`/api/monthly-goals?month=${month}`) : Promise.resolve([]),
+      quarter ? fetchGoals(`/api/quarterly-goals?quarter=${quarter}`) : Promise.resolve([]),
+    ]).then(([m, q]) => {
+      if (cancelled) return;
+      setMonthlyGoals(m);
+      setQuarterlyGoals(q);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [month, quarter]);
+
+  const monthlyById = new Map(monthlyGoals.map((g) => [g.id, g]));
+  const quarterlyById = new Map(quarterlyGoals.map((g) => [g.id, g]));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,14 +156,32 @@ export function WeeklyGoalCard() {
     load();
   };
 
+  const updateLink = async (goal: WeeklyGoal, field: "monthly_goal_id" | "quarterly_goal_id", value: string | null) => {
+    setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, [field]: value } : g)));
+    await fetch("/api/weekly-goals", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: goal.id, [field]: value }),
+    });
+    load();
+  };
+
   const addGoal = async () => {
     if (!newText.trim()) return;
     await fetch("/api/weekly-goals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newText, pillar: newPillar, week }),
+      body: JSON.stringify({
+        text: newText,
+        pillar: newPillar,
+        week,
+        monthly_goal_id: newMonthlyId,
+        quarterly_goal_id: newQuarterlyId,
+      }),
     });
     setNewText("");
+    setNewMonthlyId(null);
+    setNewQuarterlyId(null);
     setShowForm(false);
     load();
   };
@@ -149,6 +244,8 @@ export function WeeklyGoalCard() {
                 <div className="flex-1" />
                 <Button size="sm" className="h-7 text-xs" onClick={addGoal}>저장</Button>
               </div>
+              <ParentSelect label="월 목표" value={newMonthlyId} options={monthlyGoals} pillar={newPillar} onChange={setNewMonthlyId} />
+              <ParentSelect label="분기 목표" value={newQuarterlyId} options={quarterlyGoals} pillar={newPillar} onChange={setNewQuarterlyId} />
             </div>
           )}
 
@@ -173,10 +270,11 @@ export function WeeklyGoalCard() {
                   key={goal.id}
                   id={goal.id}
                   enabled={editMode}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors group bg-background"
+                  className="p-2 rounded-lg hover:bg-muted/50 transition-colors group bg-background"
                 >
                   {(handle) => (
-                  <>
+                  <div className="space-y-1">
+                  <div className="flex items-center gap-2">
                   {handle}
                   <span className="text-[11px] font-semibold text-muted-foreground w-5">#{idx + 1}</span>
                   <button onClick={() => toggleCompleted(goal)}>
@@ -214,7 +312,19 @@ export function WeeklyGoalCard() {
                   </div>
                   <Badge variant="outline" className="text-[10px] flex-shrink-0">{PILLAR_LABELS[goal.pillar]}</Badge>
                   {editMode && <button onClick={() => deleteGoal(goal.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" /></button>}
-                  </>
+                  </div>
+                  {editMode ? (
+                    <div className="space-y-1 pl-7">
+                      <ParentSelect label="월 목표" value={goal.monthly_goal_id} options={monthlyGoals} pillar={goal.pillar} onChange={(id) => updateLink(goal, "monthly_goal_id", id)} />
+                      <ParentSelect label="분기 목표" value={goal.quarterly_goal_id} options={quarterlyGoals} pillar={goal.pillar} onChange={(id) => updateLink(goal, "quarterly_goal_id", id)} />
+                    </div>
+                  ) : (
+                    <ParentLine
+                      monthly={goal.monthly_goal_id ? monthlyById.get(goal.monthly_goal_id)?.text ?? "다른 기간 목표" : null}
+                      quarterly={goal.quarterly_goal_id ? quarterlyById.get(goal.quarterly_goal_id)?.text ?? "다른 기간 목표" : null}
+                    />
+                  )}
+                  </div>
                   )}
                 </SortableRow>
               ))}
@@ -223,6 +333,21 @@ export function WeeklyGoalCard() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** 보기 모드에서 주간 목표 아래에 상위 목표를 한 줄로 보여 준다. */
+function ParentLine({ monthly, quarterly }: { monthly: string | null; quarterly: string | null }) {
+  if (!monthly && !quarterly) return null;
+  return (
+    <div className="flex items-start gap-1 pl-7 text-[11px] text-muted-foreground">
+      <CornerDownRight className="h-3 w-3 mt-0.5 flex-shrink-0" />
+      <span className="min-w-0 break-words">
+        {monthly && <>월: {monthly}</>}
+        {monthly && quarterly && " · "}
+        {quarterly && <>분기: {quarterly}</>}
+      </span>
     </div>
   );
 }
