@@ -124,3 +124,33 @@ export function goalLinkDefaults(links: GoalLinks): Record<GoalLinkField, string
     quarterly_goal_id: links.quarterly_goal_id ?? null,
   };
 }
+
+/**
+ * 주간 목표가 연결될 월·분기를 정한다. 두 달에 걸친 주는 목요일이 속한 달로 본다
+ * (ISO 주차가 해를 정하는 방식과 같다. 7일 중 4일 이상이 그 달).
+ */
+function weekThursday(week: string): Date | null {
+  const match = /^(\d{4})-W(\d{2})$/.exec(week);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const weekNo = Number(match[2]);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7;
+  const thursday = new Date(jan4);
+  thursday.setUTCDate(jan4.getUTCDate() - jan4Day + 4 + (weekNo - 1) * 7);
+  return thursday;
+}
+
+/** 'YYYY-Www' → 'YYYY-MM' */
+export function monthForWeek(week: string): string | null {
+  const thursday = weekThursday(week);
+  if (!thursday) return null;
+  return `${thursday.getUTCFullYear()}-${String(thursday.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** 'YYYY-Www' → 'YYYY-Qn' */
+export function quarterForWeek(week: string): string | null {
+  const thursday = weekThursday(week);
+  if (!thursday) return null;
+  return `${thursday.getUTCFullYear()}-Q${Math.floor(thursday.getUTCMonth() / 3) + 1}`;
+}

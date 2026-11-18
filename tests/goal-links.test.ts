@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { parseGoalUpdate, verifyGoalLinks } from "../lib/goal-links";
+import { monthForWeek, parseGoalUpdate, quarterForWeek, verifyGoalLinks } from "../lib/goal-links";
 import { createMemoryFirestoreStore, createSupabaseCompatClient } from "../lib/firebase/supabase-compatible";
 
 describe("parseGoalUpdate", () => {
@@ -91,4 +91,19 @@ describe("compat writes", () => {
     assert.ok(failed.error);
     assert.deepEqual((await store.list("daily_habits")).map((row) => row.sort_order), [2, 1]);
   });
+});
+
+it("monthForWeek / quarterForWeek use the month that holds the week's Thursday", () => {
+  // 2026-W47: 11/16(월) ~ 11/22(일)
+  assert.equal(monthForWeek("2026-W47"), "2026-11");
+  assert.equal(quarterForWeek("2026-W47"), "2026-Q4");
+  // 2026-W40: 9/28(월) ~ 10/4(일), 목요일 10/1 → 10월·4분기
+  assert.equal(monthForWeek("2026-W40"), "2026-10");
+  assert.equal(quarterForWeek("2026-W40"), "2026-Q4");
+  // 2026-W27: 6/29(월) ~ 7/5(일), 목요일 7/2 → 7월·3분기
+  assert.equal(monthForWeek("2026-W27"), "2026-07");
+  // 2026-W53: 12/28 ~ 1/3, 목요일 12/31 → 2026-12
+  assert.equal(monthForWeek("2026-W53"), "2026-12");
+  assert.equal(monthForWeek("bad"), null);
+  assert.equal(quarterForWeek(""), null);
 });
