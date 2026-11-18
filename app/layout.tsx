@@ -49,10 +49,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <LocalDailyBackupSync />
-        <main className="mx-auto w-full max-w-md min-h-screen pb-20 lg:max-w-6xl">
-          {children}
-        </main>
+        {/* 메뉴를 본문 앞에 두어, 메뉴가 있을 때만(위젯 화면 제외) 넓은 화면에서 본문이 사이드 메뉴 폭만큼 비켜서게 한다 */}
         <BottomNav />
+        <main className="min-h-screen pb-20 lg:pb-8 lg:peer-data-[nav=on]:pl-56">
+          <div className="mx-auto w-full max-w-md lg:max-w-6xl">{children}</div>
+        </main>
       </body>
     </html>
   );

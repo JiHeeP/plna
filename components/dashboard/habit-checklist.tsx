@@ -303,6 +303,8 @@ export function HabitChecklist({ date }: { date?: string }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-1">
+        {/* 넓은 화면에선 두 칸 격자로 세로 길이를 줄인다. 순서 바꾸기(수정 모드)는 세로 목록이 편해 한 줄로 둔다. */}
+        <div className={editMode ? "space-y-1" : "space-y-1 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0"}>
         <SortableList items={habits} enabled={editMode} onReorder={reorderHabits}>
           {habits.map((habit) => (
             <SortableRow
@@ -348,6 +350,7 @@ export function HabitChecklist({ date }: { date?: string }) {
             </SortableRow>
           ))}
         </SortableList>
+        </div>
 
         {editMode && !showAddForm && (
           <Button
