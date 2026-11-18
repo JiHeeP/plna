@@ -110,6 +110,7 @@ Claude(예약 작업·채팅)가 쿠키 없이 일정을 읽고 추가·수정�
 | `/api/claude/todos` | `?from=YYYY-MM-DD&to=YYYY-MM-DD` (최대 31일, 이월 안 함) | `{ date, text, category?, sort_order? }` | `{ id, text?, completed?, date?, category?, sort_order? }` |
 | `/api/claude/weekly-goals` | `?week=YYYY-Www` (기본 이번 주) | `{ week, text, pillar, monthly_goal_id?, quarterly_goal_id? }` | `{ id, text?, completed?, monthly_goal_id?, quarterly_goal_id? }` |
 | `/api/claude/monthly-goals` | `?month=YYYY-MM` (기본 이번 달) | — (읽기 전용) | — |
+| `/api/claude/records` | `?from=YYYY-MM-DD&to=YYYY-MM-DD` (최대 31일) → 습관 목록·완료 기록, 저널, 일기, 대화 기록, 주간 회고 | — (읽기 전용) | — |
 | `/api/claude/quarterly-goals` | `?quarter=YYYY-Qn` (기본 이번 분기) | — (분기 목표 추가는 사용자가 직접) | `{ id, text?, completed? }` |
 
 - `category`: `school` | `personal` · `pillar`: `career` | `identity` | `assets` · `text`: 300자 이하
